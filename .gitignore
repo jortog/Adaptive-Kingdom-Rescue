@@ -1,0 +1,12 @@
+# Ignore the virtual environment
+venv/
+.venv/
+env/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore logs and models if they are too big
+data/logs/
+data/models/*.pth
