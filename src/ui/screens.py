@@ -7,7 +7,7 @@ _FONT_PATH = "assets/fonts/SuperPixel-m2L8j.ttf"
 
 def _pf(size):
     try:    return pygame.font.Font(_FONT_PATH, size)
-    except: return pygame.font.SysFont("Courier New", size, bold=True)
+    except: return pygame.font.Font(None, size)
 
 def _sf(size, bold=False):
     return pygame.font.SysFont("Arial", size, bold=bold)
@@ -259,7 +259,7 @@ class ScreenManager:
             fx += img.get_width()
 
         grp = self.fp_small.render(
-            "PUP CCIS  |  COSC 304  |  Group 1  |  Prof. Ria A. Sagum",True,C_VDIM)
+            "PUP CCIS  |  Group One  |  Prof. Ria A. Sagum", True, C_WHITE)
         self.surface.blit(grp,(M,SCREEN_HEIGHT-26))
 
     def draw_settings(self, cursor=0, settings=None,
@@ -289,8 +289,8 @@ class ScreenManager:
                  px+pw//2-timg.get_width()//2,py+18,n=2,sc=(75,48,0))
         pygame.draw.line(self.surface,(55,50,38),(px+20,py+56),(px+pw-20,py+56),1)
 
-        # Level display: shows "LEVEL 1", "LEVEL 2", "LEVEL 3" — no fractions
-        level_label = f"LEVEL  {selected_level + 1}"
+        level_names = ["ONE", "TWO", "THREE"]
+        level_label = f"LEVEL  {level_names[selected_level]}"
 
         options = [
             ("Sound",       "ON" if settings.get('sound',True) else "OFF"),
@@ -380,19 +380,10 @@ class ScreenManager:
             cy  = 80+int((38+10*math.sin(t*2+i))*math.sin(ang))
             pygame.draw.circle(self.surface,C_GOLD,(cx,cy),6+int(2*abs(math.sin(t+i))))
 
-        bw,bh = SCREEN_WIDTH-120,88
-        bs = pygame.Surface((bw,bh),pygame.SRCALPHA)
-        bs.fill((8,12,28,210))
-        pygame.draw.rect(bs,(*C_GOLD,200),(0,0,bw,bh),2,border_radius=8)
         bob = int(math.sin(t*2)*4)
-        self.surface.blit(bs,(60,108+bob))
         _center_outline(self.surface,"LEVEL  COMPLETE!",self.fp_title,C_GOLD,116+bob,n=2,sc=(75,48,0))
 
-        sw,sh = 460,108
-        ss = pygame.Surface((sw,sh),pygame.SRCALPHA)
-        ss.fill((8,12,28,205))
-        pygame.draw.rect(ss,(*C_GOLD,185),(0,0,sw,sh),2,border_radius=8)
-        self.surface.blit(ss,(SCREEN_WIDTH//2-sw//2,225))
+        
         _center_outline(self.surface,f"World {level_index} Cleared!",self.fp_small,(110,245,110),233,n=1,sc=(0,55,0))
         _center_outline(self.surface,f"SCORE  {score:07d}",self.fp_large,C_GOLD,256,n=2,sc=(75,48,0))
         _center(self.surface,"Princess Rescued!",self.fs_med,(215,178,138),300)
@@ -410,19 +401,11 @@ class ScreenManager:
 
         pulse = 0.5+0.5*math.sin(t*3)
         rv    = int(180+75*pulse)
-        bw,bh = 660,88
-        bs = pygame.Surface((bw,bh),pygame.SRCALPHA)
-        bs.fill((18,4,4,215))
-        pygame.draw.rect(bs,(175,28,28,200),(0,0,bw,bh),2,border_radius=8)
-        self.surface.blit(bs,(SCREEN_WIDTH//2-bw//2,108))
+       
         _center_outline(self.surface,"GAME  OVER",self.fp_title,(rv,18,18),116,n=2,sc=(58,0,0))
         _center(self.surface,"The princess still waits...",self.fp_small,C_DIM,218)
 
-        sw,sh = 460,108
-        ss = pygame.Surface((sw,sh),pygame.SRCALPHA)
-        ss.fill((18,4,4,205))
-        pygame.draw.rect(ss,(155,28,28,188),(0,0,sw,sh),2,border_radius=8)
-        self.surface.blit(ss,(SCREEN_WIDTH//2-sw//2,255))
+       
         _center_outline(self.surface,f"SCORE  {score:07d}",self.fp_large,C_GOLD,265,n=2,sc=(75,48,0))
         _center(self.surface,"The enemy has memorized your tactics.",self.fp_small,(198,118,75),308)
         if int(t*2)%2==0:
@@ -443,18 +426,10 @@ class ScreenManager:
                 (SCREEN_WIDTH//2+int(rad*math.cos(ang)),118+int(rad*math.sin(ang))),
                 5+int(2*abs(math.sin(t*2+i))))
 
-        bw,bh = 500,88
-        bs = pygame.Surface((bw,bh),pygame.SRCALPHA)
-        bs.fill((8,12,28,210))
-        pygame.draw.rect(bs,(*C_GOLD,200),(0,0,bw,bh),2,border_radius=8)
-        self.surface.blit(bs,(SCREEN_WIDTH//2-bw//2,188))
+        
         _center_outline(self.surface,"YOU  WIN!",self.fp_title,C_GOLD,196,n=2,sc=(75,48,0))
 
-        sw,sh = 495,118
-        ss = pygame.Surface((sw,sh),pygame.SRCALPHA)
-        ss.fill((8,12,28,205))
-        pygame.draw.rect(ss,(*C_GOLD,188),(0,0,sw,sh),2,border_radius=8)
-        self.surface.blit(ss,(SCREEN_WIDTH//2-sw//2,296))
+       
         _center(self.surface,"The Kingdom is Saved!",self.fp_small,(110,245,110),304)
         _center_outline(self.surface,f"FINAL  {score:07d}",self.fp_large,C_GOLD,326,n=2,sc=(75,48,0))
         _center(self.surface,"Challenge Mode Unlocked!",self.fp_small,(252,162,65),366)

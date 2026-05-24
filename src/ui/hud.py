@@ -43,10 +43,10 @@ class HUD:
     def draw(self, surface, game_state, time_remaining, rnn_confidence):
         # Panel
         panel = pygame.Surface((SCREEN_WIDTH, HUD_H), pygame.SRCALPHA)
-        panel.fill((6, 10, 24, 222))
+        panel.fill((6, 10, 24, 0))
         surface.blit(panel, (0,0))
+
         pygame.draw.line(surface,(175,138,0),(0,0),(SCREEN_WIDTH,0),2)
-        pygame.draw.line(surface,(35,32,22),(0,HUD_H-1),(SCREEN_WIDTH,HUD_H-1),1)
 
         # SCORE
         lbl = self.fp_lbl.render("RESCUER", True, C_DIM)
