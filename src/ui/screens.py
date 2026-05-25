@@ -293,9 +293,9 @@ class ScreenManager:
         level_label = f"LEVEL  {level_names[selected_level]}"
 
         options = [
-            ("Sound",       "ON" if settings.get('sound',True) else "OFF"),
+            ("Menu Music", "ON" if settings.get('music',True) else "OFF"),
             ("Start Level", level_label),
-            ("AI Mode",     "Challenge" if settings.get('ai_difficulty','normal')=='challenge' else "Normal"),
+            ("AI Difficulty",     "Challenge" if settings.get('ai_difficulty','normal')=='challenge' else "Normal"),
             ("Controls",    "VIEW"),
             ("Back",        ""),
         ]

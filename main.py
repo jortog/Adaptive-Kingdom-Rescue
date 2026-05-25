@@ -3,6 +3,7 @@ from config import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE, LEVEL_TIME_LIMIT, T
 from src.systems.game_state import GameState
 from src.systems.camera import Camera
 from src.systems.scoring import ScoringSystem
+from src.systems.audio import AudioManager
 from src.entities.player import Player
 from src.entities.enemy import Enemy
 from src.entities.powerup import PowerUp
@@ -19,14 +20,13 @@ SCENE_MENU="menu"; SCENE_GAME="game"; SCENE_PAUSE="pause"
 SCENE_SETTINGS="settings"; SCENE_LEVEL_COMPLETE="level_complete"
 SCENE_GAME_OVER="game_over"; SCENE_WIN="win"
 LEVELS=[Level01,Level02,Level03]; NUM_LEVELS=3
+MENU_BGM="menu_music_cropped.mp3"
 
 class Game:
     def __init__(self):
         pygame.init(); pygame.mixer.init()
-        pygame.mixer.music.load("assets/sounds/menu_music_cropped.mp3")
-        pygame.mixer.music.set_volume(0.5)
-        pygame.mixer.music.play(-1)
-        pygame.mixer.music.set_pos(12)
+        self.audio=AudioManager()
+        self.audio.play_bgm(MENU_BGM, loop=True, start_pos=12)
         self.screen=pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
         pygame.display.set_caption(TITLE)
         self.clock=pygame.time.Clock()
@@ -38,9 +38,12 @@ class Game:
         self.time_remaining=LEVEL_TIME_LIMIT
         self._aerial_spawn_cd=0.0; self.AERIAL_SPAWN_CD=4.0
         self.selected_level=0
-        self.settings={'sound':True,'ai_difficulty':'normal'}
+        self.settings={'sound':True,'music':True,'ai_difficulty':'normal'}
         self._menu_cursor=0; self._pause_cursor=0
         self._settings_cursor=0; self._settings_from=SCENE_MENU
+
+    def _start_menu_music(self):
+        self.audio.play_bgm(MENU_BGM, loop=True, start_pos=12)
 
     def load_level(self,idx):
         idx=min(max(idx,0),NUM_LEVELS-1)
@@ -48,6 +51,7 @@ class Game:
         self.gs.reset_level()
         self.time_remaining=LEVEL_TIME_LIMIT; self._aerial_spawn_cd=0.0
         self.player=Player(self.level.spawn_x,self.level.spawn_y,self.gs)
+        self.player.audio=self.audio
         self.camera=Camera(self.level.pixel_width,self.level.pixel_height)
         self.scoring=ScoringSystem(self.gs)
         if self.ai_ensemble is None:
@@ -80,14 +84,18 @@ class Game:
         self.ai_ensemble.ppo.reward_prevention()
         for e in list(self.enemies):
             if not e.alive or not self.player.rect.colliderect(e.rect): continue
-            stomp=pygame.Rect(e.rect.x,e.rect.y,e.rect.width,e.rect.height*0.10)
-            pbot=pygame.Rect(self.player.rect.x,self.player.rect.bottom-4,self.player.rect.width,4)
-            if pbot.colliderect(stomp) and self.player.vel_y>0:
+            stomp=pygame.Rect(e.rect.x,e.rect.y-2,e.rect.width,e.rect.height*0.55)
+            pbot=pygame.Rect(self.player.rect.x,self.player.rect.bottom-10,self.player.rect.width,12)
+            falling = self.player.vel_y > -50
+            above = self.player.rect.centery < e.rect.centery
+            if pbot.colliderect(stomp) and falling and above:
                 e.die(); self.enemies.remove(e); self.player.vel_y=-400
+                self.audio.play_defeat()
                 self.scoring.award_enemy_defeat(e.enemy_type,not self.player.on_ground)
             else:
                 if self.player.take_damage():
                     self.gs.lives-=1
+                    self.audio.play_death()
                     if self.gs.level_time_elapsed<5.0: self.ai_ensemble.ppo.penalty_fast_death()
                     self.gs.player_deaths_this_level+=1
                     self.scene=SCENE_GAME_OVER if self.gs.lives<=0 else self.scene
@@ -95,7 +103,7 @@ class Game:
                     return
         for hz in self.level.hazards:
             if self.player.rect.colliderect(hz):
-                self.gs.lives-=1; self.gs.player_deaths_this_level+=1
+                self.gs.lives-=1; self.audio.play_death(); self.gs.player_deaths_this_level+=1
                 self.scene=SCENE_GAME_OVER if self.gs.lives<=0 else self.scene
                 if self.gs.lives>0: self.load_level(self.gs.level_index)
                 return
@@ -103,14 +111,16 @@ class Game:
             if self.player.rect.colliderect(pu.rect):
                 if pu.kind=="oneup": self.gs.lives=min(self.gs.lives+1,9)
                 else: self.player.collect_powerup(pu.kind)
+                self.audio.play_coin()
                 self.scoring.award_powerup(pu.kind); self.powerups.remove(pu)
         if self.player.rect.colliderect(self.princess.rect):
             self.scoring.award_level_complete(self.time_remaining,self.gs.damage_taken_this_level==0)
             self.ai_ensemble.learn_after_level(list(self.gs.action_history)); self.ai_ensemble.save_all()
             self.gs.level_index+=1
+            self.audio.play_win()
             self.scene=SCENE_WIN if self.gs.level_index>=NUM_LEVELS else SCENE_LEVEL_COMPLETE; return
         if self.player.rect.top>self.level.pixel_height+100 or self.time_remaining<=0:
-            self.gs.lives-=1; self.gs.player_deaths_this_level+=1
+            self.gs.lives-=1; self.audio.play_death(); self.gs.player_deaths_this_level+=1
             self.scene=SCENE_GAME_OVER if self.gs.lives<=0 else self.scene
             if self.gs.lives>0: self.load_level(self.gs.level_index)
 
@@ -132,23 +142,19 @@ class Game:
         N=5
         if event.key==pygame.K_UP: self._settings_cursor=(self._settings_cursor-1)%N
         elif event.key==pygame.K_DOWN: self._settings_cursor=(self._settings_cursor+1)%N
-        elif event.key==pygame.K_RIGHT:
+        elif event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_RETURN):
             c=self._settings_cursor
-            if c==0: self.settings['sound']=not self.settings['sound']
-            elif c==1: self.selected_level=(self.selected_level+1)%NUM_LEVELS
-            elif c==2:
-                self.settings['ai_difficulty']='challenge' if self.settings['ai_difficulty']=='normal' else 'normal'
+            if c==0:   # Menu Music (BGM)
+                self.settings['music']=not self.settings.get('music',True)
+                self.audio.set_music_enabled(self.settings['music'])
+            elif c==1: # Start Level
+                if event.key==pygame.K_RIGHT: self.selected_level=(self.selected_level+1)%NUM_LEVELS
+                elif event.key==pygame.K_LEFT: self.selected_level=(self.selected_level-1)%NUM_LEVELS
+            elif c==2: # AI Difficulty
+                self.settings['ai_difficulty']='challenge' if self.settings.get('ai_difficulty','normal')=='normal' else 'normal'
                 self._apply_ai()
-        elif event.key==pygame.K_LEFT:
-            c=self._settings_cursor
-            if c==0: self.settings['sound']=not self.settings['sound']
-            elif c==1: self.selected_level=(self.selected_level-1)%NUM_LEVELS
-            elif c==2:
-                self.settings['ai_difficulty']='challenge' if self.settings['ai_difficulty']=='normal' else 'normal'
-                self._apply_ai()
-        elif event.key==pygame.K_RETURN:
-            if self._settings_cursor==4: self.scene=self._settings_from
-            elif self._settings_cursor==0: self.settings['sound']=not self.settings['sound']
+            elif c==4 and event.key==pygame.K_RETURN: # Back
+                self.scene=self._settings_from
         elif event.key in (pygame.K_ESCAPE,pygame.K_BACKSPACE): self.scene=self._settings_from
 
     def run(self):
@@ -162,7 +168,7 @@ class Game:
                     elif event.key==pygame.K_DOWN: self._menu_cursor=(self._menu_cursor+1)%3
                     elif event.key==pygame.K_RETURN:
                         if self._menu_cursor==0:
-                            pygame.mixer.music.stop(); self.gs.level_index=self.selected_level; self.load_level(self.gs.level_index); self.scene=SCENE_GAME
+                            self.audio.stop_bgm(); self.gs.level_index=self.selected_level; self.load_level(self.gs.level_index); self.scene=SCENE_GAME
                         elif self._menu_cursor==1:
                             self._settings_from=SCENE_MENU; self._settings_cursor=0; self.scene=SCENE_SETTINGS
                         elif self._menu_cursor==2: self._quit()
@@ -170,7 +176,7 @@ class Game:
                 elif self.scene==SCENE_GAME:
                     if event.type==pygame.KEYDOWN:
                         if event.key==pygame.K_p: self._pause_cursor=0; self.scene=SCENE_PAUSE
-                        elif event.key==pygame.K_ESCAPE: self.scene=SCENE_MENU; pygame.mixer.music.play(-1); pygame.mixer.music.set_pos(12)
+                        elif event.key==pygame.K_ESCAPE: self.scene=SCENE_MENU; self._start_menu_music()
                     if self.player: self.player.handle_event(event)
                 elif self.scene==SCENE_PAUSE and event.type==pygame.KEYDOWN:
                     if event.key==pygame.K_UP: self._pause_cursor=(self._pause_cursor-1)%3
@@ -178,8 +184,7 @@ class Game:
                     elif event.key==pygame.K_RETURN:
                         if self._pause_cursor==0: self.scene=SCENE_GAME
                         elif self._pause_cursor==1: self._settings_from=SCENE_PAUSE; self._settings_cursor=0; self.scene=SCENE_SETTINGS
-                        elif self._pause_cursor==2: self.scene=SCENE_MENU; pygame.mixer.music.play(-1)
-                        pygame.mixer.music.set_pos(12)
+                        elif self._pause_cursor==2: self.scene=SCENE_MENU; self._start_menu_music()
                     elif event.key in (pygame.K_p,pygame.K_ESCAPE): self.scene=SCENE_GAME
                 elif self.scene==SCENE_SETTINGS and event.type==pygame.KEYDOWN:
                     self._settings_key(event)
@@ -188,8 +193,7 @@ class Game:
                         if self.scene==SCENE_GAME_OVER: self.gs.lives=3; self.load_level(self.gs.level_index); self.scene=SCENE_GAME
                         elif self.scene==SCENE_LEVEL_COMPLETE: self.load_level(self.gs.level_index); self.scene=SCENE_GAME
                         elif self.scene==SCENE_WIN: self.gs.challenge_mode=True; self.gs.level_index=0; self.load_level(0); self.scene=SCENE_GAME
-                    elif event.key==pygame.K_ESCAPE: self.scene=SCENE_MENU; pygame.mixer.music.play(-1)
-                    pygame.mixer.music.set_pos(12)
+                    elif event.key==pygame.K_ESCAPE: self.scene=SCENE_MENU; self._start_menu_music()
 
             if self.scene==SCENE_MENU: self.screens.draw_main_menu(self._menu_cursor)
             elif self.scene==SCENE_GAME: self.update_game(dt); self.draw_game()

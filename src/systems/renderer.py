@@ -1,112 +1,140 @@
-import pygame
+﻿import pygame
+import math
 from config import SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE
 
-# ── Palette ────────────────────────────────────────────────────────────────────
-SKY_TOP     = (108, 180, 255)
-SKY_BOT     = ( 64, 130, 230)
-CLOUD_WHITE = (255, 255, 255)
-CLOUD_SHAD  = (210, 215, 240)
-HILL_LT     = ( 92, 185,  60)
-HILL_DK     = ( 58, 140,  35)
-HILL_SPOT   = (120, 210,  75)
-GRASS_TOP   = (108, 196,  78)
-GRASS_DRK   = ( 74, 152,  48)
-DIRT_MID    = (185, 105,  32)
-DIRT_DRK    = (135,  72,  18)
-BRICK_MAIN  = (192,  90,  44)
-BRICK_HIGH  = (230, 130,  75)
-BRICK_DRK   = (132,  54,  20)
+# Night palette
+SKY_TOP = (14, 18, 48)
+SKY_MID = (28, 34, 78)
+SKY_BOT = (52, 58, 104)
+MOON_C  = (248, 246, 220)
+MOON_G  = (220, 228, 255)
 
-# ── Cached surfaces (built once) ───────────────────────────────────────────────
-_sky_surf:   pygame.Surface | None = None
-_tile_cache: dict = {}   # (tile_type, w, h) -> Surface
+HILL_FAR_L=(34,46,86);  HILL_FAR_D=(24,34,68)
+HILL_MID_L=(30,54,70);  HILL_MID_D=(20,40,54); HILL_MID_S=(46,78,92)
+BUSH_L=(28,60,46);      BUSH_D=(18,44,34);     BUSH_S=(44,86,62)
+
+GRASS_T=(54,120,70); GRASS_T2=(74,148,92); GRASS_D=(34,84,48)
+DIRT_M=(96,66,40); DIRT_L=(120,86,54); DIRT_D=(64,42,24)
+BRICK_M=(110,60,46); BRICK_H=(150,88,66); BRICK_D=(70,38,26)
+
+_sky_surf=None; _tile_cache={}; _cloud_cache=None
+_STARS=None
 
 def _build_sky():
-    """Pre-render the sky gradient into a surface once."""
-    global _sky_surf
-    _sky_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+    surf=pygame.Surface((SCREEN_WIDTH,SCREEN_HEIGHT))
     for y in range(SCREEN_HEIGHT):
-        t   = y / SCREEN_HEIGHT
-        r   = int(SKY_TOP[0] + (SKY_BOT[0]-SKY_TOP[0])*t)
-        g   = int(SKY_TOP[1] + (SKY_BOT[1]-SKY_TOP[1])*t)
-        b   = int(SKY_TOP[2] + (SKY_BOT[2]-SKY_TOP[2])*t)
-        pygame.draw.line(_sky_surf, (r,g,b), (0,y),(SCREEN_WIDTH,y))
-
-def _get_tile_surface(tile_type: str) -> pygame.Surface:
-    """Return a cached pre-rendered tile surface."""
-    if tile_type in _tile_cache:
-        return _tile_cache[tile_type]
-
-    surf = pygame.Surface((TILE_SIZE, TILE_SIZE))
-    if tile_type == "ground":
-        surf.fill(DIRT_MID)
-        # Grass cap
-        pygame.draw.rect(surf, GRASS_TOP,  (0, 0, TILE_SIZE, 13))
-        pygame.draw.rect(surf, GRASS_DRK,  (0,10, TILE_SIZE, 3))
-        # Dirt lines
-        pygame.draw.line(surf, DIRT_DRK,   (0, TILE_SIZE//2),(TILE_SIZE,TILE_SIZE//2),1)
-        pygame.draw.line(surf, DIRT_DRK,   (TILE_SIZE//2,14),(TILE_SIZE//2,TILE_SIZE),1)
-        pygame.draw.rect(surf, DIRT_DRK,   (0,0,TILE_SIZE,TILE_SIZE),1)
-    elif tile_type == "platform":
-        surf.fill(BRICK_MAIN)
-        pygame.draw.rect(surf, BRICK_HIGH, (0,0,TILE_SIZE,6))
-        pygame.draw.rect(surf, BRICK_HIGH, (0,0,4,TILE_SIZE))
-        pygame.draw.line(surf, BRICK_DRK,  (0,TILE_SIZE//2),(TILE_SIZE,TILE_SIZE//2),2)
-        pygame.draw.line(surf, BRICK_DRK,  (TILE_SIZE//2,0),(TILE_SIZE//2,TILE_SIZE),2)
-        pygame.draw.rect(surf, BRICK_DRK,  (0,0,TILE_SIZE,TILE_SIZE),1)
-
-    _tile_cache[tile_type] = surf
+        t=y/SCREEN_HEIGHT
+        if t<0.55:
+            tt=t/0.55
+            r=int(SKY_TOP[0]+(SKY_MID[0]-SKY_TOP[0])*tt)
+            g=int(SKY_TOP[1]+(SKY_MID[1]-SKY_TOP[1])*tt)
+            b=int(SKY_TOP[2]+(SKY_MID[2]-SKY_TOP[2])*tt)
+        else:
+            tt=(t-0.55)/0.45
+            r=int(SKY_MID[0]+(SKY_BOT[0]-SKY_MID[0])*tt)
+            g=int(SKY_MID[1]+(SKY_BOT[1]-SKY_MID[1])*tt)
+            b=int(SKY_MID[2]+(SKY_BOT[2]-SKY_MID[2])*tt)
+        pygame.draw.line(surf,(r,g,b),(0,y),(SCREEN_WIDTH,y))
+    # Stars
+    import random as _r
+    _r.seed(11)
+    for _ in range(90):
+        sx=_r.randint(0,SCREEN_WIDTH); sy=_r.randint(0,int(SCREEN_HEIGHT*0.6))
+        c=_r.randint(150,255)
+        pygame.draw.circle(surf,(c,c,min(255,c+20)),(sx,sy),_r.randint(1,2))
+    # Moon upper-right
+    mx,my=int(SCREEN_WIDTH*0.82),int(SCREEN_HEIGHT*0.18)
+    for i in range(8,0,-1):
+        gl=pygame.Surface((i*54,i*54),pygame.SRCALPHA)
+        pygame.draw.circle(gl,(*MOON_G,10),(i*27,i*27),i*27)
+        surf.blit(gl,(mx-i*27,my-i*27),special_flags=pygame.BLEND_RGBA_ADD)
+    pygame.draw.circle(surf,MOON_C,(mx,my),40)
+    pygame.draw.circle(surf,(232,230,205),(mx-12,my+8),9)
+    pygame.draw.circle(surf,(232,230,205),(mx+10,my+14),6)
     return surf
 
-def _cloud(surface: pygame.Surface, cx: int, cy: int, scale: float = 1.0):
-    parts = [
-        (int(cx),          int(cy+14*scale), int(78*scale), int(30*scale)),
-        (int(cx+16*scale), int(cy),          int(54*scale), int(38*scale)),
-        (int(cx+46*scale), int(cy+10*scale), int(60*scale), int(28*scale)),
-    ]
-    for r in parts:
-        pygame.draw.ellipse(surface, CLOUD_SHAD,(r[0]+2,r[1]+3,r[2],r[3]))
-    for r in parts:
-        pygame.draw.ellipse(surface, CLOUD_WHITE, r)
+def _make_cloud(scale=1.0):
+    w,h=int(150*scale),int(70*scale)
+    s=pygame.Surface((w,h),pygame.SRCALPHA)
+    lumps=[(0.18,0.55,0.34),(0.34,0.30,0.40),(0.54,0.26,0.42),(0.74,0.50,0.32),(0.46,0.58,0.38)]
+    for lx,ly,lr in lumps:
+        pygame.draw.circle(s,(60,68,110,150),(int(w*lx),int(h*ly),),int(h*lr))
+    for lx,ly,lr in lumps:
+        pygame.draw.circle(s,(78,88,135,180),(int(w*lx),int(h*ly)),int(h*lr))
+    return s
 
-def _hill(surface: pygame.Surface, cx: int, base_y: int, rx: int, ry: int):
-    pygame.draw.ellipse(surface, HILL_DK,   (cx-rx, base_y-ry, rx*2, ry*2))
-    pygame.draw.ellipse(surface, HILL_LT,   (cx-rx+10, base_y-ry+10, rx*2-20, ry*2-20))
-    pygame.draw.circle(surface, HILL_SPOT,  (cx-rx//3, base_y-ry//3), 12)
-    pygame.draw.circle(surface, HILL_SPOT,  (cx+rx//4, base_y-ry//2), 8)
+def _get_tile(kind):
+    if kind in _tile_cache: return _tile_cache[kind]
+    s=pygame.Surface((TILE_SIZE,TILE_SIZE),pygame.SRCALPHA)
+    if kind=="ground":
+        for y in range(TILE_SIZE):
+            t=y/TILE_SIZE
+            r=int(DIRT_L[0]+(DIRT_D[0]-DIRT_L[0])*t)
+            g=int(DIRT_L[1]+(DIRT_D[1]-DIRT_L[1])*t)
+            b=int(DIRT_L[2]+(DIRT_D[2]-DIRT_L[2])*t)
+            pygame.draw.line(s,(r,g,b),(0,y),(TILE_SIZE,y))
+        import random as _r; _r.seed(7)
+        for _ in range(10):
+            pygame.draw.circle(s,DIRT_D,(_r.randint(2,TILE_SIZE-3),_r.randint(16,TILE_SIZE-3)),1)
+        pygame.draw.rect(s,GRASS_D,(0,0,TILE_SIZE,16))
+        pygame.draw.rect(s,GRASS_T,(0,0,TILE_SIZE,12))
+        pygame.draw.rect(s,GRASS_T2,(0,0,TILE_SIZE,5))
+        for bx in range(2,TILE_SIZE,8):
+            pygame.draw.circle(s,GRASS_T2,(bx,4),3)
+        pygame.draw.rect(s,DIRT_D,(0,0,TILE_SIZE,TILE_SIZE),1)
+    elif kind=="platform":
+        for y in range(TILE_SIZE):
+            t=y/TILE_SIZE
+            r=int(BRICK_H[0]+(BRICK_D[0]-BRICK_H[0])*t)
+            g=int(BRICK_H[1]+(BRICK_D[1]-BRICK_H[1])*t)
+            b=int(BRICK_H[2]+(BRICK_D[2]-BRICK_H[2])*t)
+            pygame.draw.line(s,(r,g,b),(0,y),(TILE_SIZE,y))
+        pygame.draw.rect(s,BRICK_H,(0,0,TILE_SIZE,5))
+        pygame.draw.rect(s,BRICK_H,(0,0,4,TILE_SIZE))
+        pygame.draw.line(s,BRICK_D,(0,TILE_SIZE//2),(TILE_SIZE,TILE_SIZE//2),2)
+        pygame.draw.line(s,BRICK_D,(TILE_SIZE//2,0),(TILE_SIZE//2,TILE_SIZE),2)
+        pygame.draw.rect(s,BRICK_D,(0,0,TILE_SIZE,TILE_SIZE),1)
+    _tile_cache[kind]=s
+    return s
 
-# ── Public API ─────────────────────────────────────────────────────────────────
-def draw_background(surface: pygame.Surface, camera_x: int):
-    """Draw sky + parallax hills + clouds. Sky is cached; hills/clouds use camera offset."""
+def _blit_sky(surface):
     global _sky_surf
-    if _sky_surf is None:
-        _build_sky()
+    if _sky_surf is None: _sky_surf=_build_sky()
+    surface.blit(_sky_surf,(0,0))
 
-    # Blit pre-rendered sky (O(1) — single surface copy)
-    surface.blit(_sky_surf, (0, 0))
+def _hill(surface,cx,by,rx,ry,lt,dk,spot=None):
+    pygame.draw.ellipse(surface,dk,(cx-rx,by-ry,rx*2,ry*2))
+    pygame.draw.ellipse(surface,lt,(cx-rx+12,by-ry+10,rx*2-24,ry*2-20))
+    if spot:
+        pygame.draw.circle(surface,spot,(cx-rx//3,by-ry//3),max(6,rx//12))
+        pygame.draw.circle(surface,spot,(cx+rx//4,by-ry//2),max(4,rx//16))
 
-    # Hills (parallax: 1/5 of camera speed)
-    hill_off = (camera_x // 5) % 320
-    ground_y = SCREEN_HEIGHT - 68
-    for i in range(-1, SCREEN_WIDTH // 320 + 3):
-        hx = i * 320 - hill_off
-        _hill(surface, hx + 160, ground_y, 155, 95)
-        _hill(surface, hx + 10,  ground_y - 20, 90, 62)
+CLOUD_DEFS=[(110,70,1.15),(360,42,0.85),(640,86,1.30),(920,52,0.95),(1180,72,1.10),(1460,46,0.80)]
 
-    # Clouds (parallax: 1/8 of camera speed)
-    CLOUD_DEFS = [
-        (80, 52,1.05),(300,30,0.85),(560,68,1.20),(830,42,0.90),
-        (1060,60,1.10),(1290,36,0.80),(1490,72,1.00),
-    ]
-    cloud_period = SCREEN_WIDTH + 220
-    for cx, cy, sc in CLOUD_DEFS:
-        ox = (cx - camera_x // 8) % cloud_period - 110
-        _cloud(surface, ox, cy, sc)
+def draw_background(surface,camera_x):
+    global _cloud_cache
+    if _cloud_cache is None:
+        _cloud_cache={round(sc,2):_make_cloud(sc) for _,_,sc in CLOUD_DEFS}
+    _blit_sky(surface)
+    gy=SCREEN_HEIGHT-68
+    off1=(camera_x//6)%360
+    for i in range(-1,SCREEN_WIDTH//360+3):
+        _hill(surface,i*360-off1+180,gy+20,200,120,HILL_FAR_L,HILL_FAR_D)
+    off2=(camera_x//4)%300
+    for i in range(-1,SCREEN_WIDTH//300+3):
+        _hill(surface,i*300-off2+150,gy+10,165,100,HILL_MID_L,HILL_MID_D,HILL_MID_S)
+    period=SCREEN_WIDTH+260
+    for cx,cy,sc in CLOUD_DEFS:
+        ox=(cx-camera_x//8)%period-130
+        surface.blit(_cloud_cache[round(sc,2)],(ox,cy))
+    off4=(camera_x//2)%220
+    for i in range(-1,SCREEN_WIDTH//220+3):
+        _hill(surface,i*220-off4+110,gy+4,120,70,BUSH_L,BUSH_D,BUSH_S)
 
-def draw_ground_tile(surface: pygame.Surface, rect: pygame.Rect):
-    """Blit a cached ground tile — O(1) per tile."""
-    surface.blit(_get_tile_surface("ground"), rect)
+def draw_ground_tile(surface,rect):
+    surface.blit(_get_tile("ground"),rect)
 
-def draw_platform_tile(surface: pygame.Surface, rect: pygame.Rect):
-    """Blit a cached platform tile — O(1) per tile."""
-    surface.blit(_get_tile_surface("platform"), rect)
+def draw_platform_tile(surface,rect):
+    sh=pygame.Surface((rect.width,6),pygame.SRCALPHA); sh.fill((0,0,0,70))
+    surface.blit(sh,(rect.x,rect.bottom))
+    surface.blit(_get_tile("platform"),rect)

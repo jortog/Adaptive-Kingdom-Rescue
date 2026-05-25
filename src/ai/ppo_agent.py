@@ -1,20 +1,20 @@
 # src/ai/ppo_agent.py
 """
 PPO Reinforcement Learning Agent
-─────────────────────────────────
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Uses Stable-Baselines3's PPO implementation.
 The "environment" is a lightweight Gymnasium-compatible wrapper
 that the game feeds state/reward into after each PPO update interval.
 
 State space (8 floats, normalized [0,1]):
-  [0] level_timer_norm        — time elapsed / time limit
-  [1] player_lives_norm       — lives / max_lives
-  [2] enemy_count_norm        — enemies alive / max_enemies
-  [3] dist_to_princess_norm   — player dist to princess / level_width
-  [4] jump_freq_norm          — jumps in last 30s / 30
-  [5] run_freq_norm           — runs in last 30s / 30
-  [6] player_speed_norm       — |player vel_x| / max_speed
-  [7] player_health_norm      — player size_level / 2
+  [0] level_timer_norm        â€” time elapsed / time limit
+  [1] player_lives_norm       â€” lives / max_lives
+  [2] enemy_count_norm        â€” enemies alive / max_enemies
+  [3] dist_to_princess_norm   â€” player dist to princess / level_width
+  [4] jump_freq_norm          â€” jumps in last 30s / 30
+  [5] run_freq_norm           â€” runs in last 30s / 30
+  [6] player_speed_norm       â€” |player vel_x| / max_speed
+  [7] player_health_norm      â€” player size_level / 2
 
 Action space: Discrete(STRAT_COUNT) = 7 strategic commands
 """
@@ -80,9 +80,9 @@ class KingdomRescueEnv(gym.Env):
 class PPOAgent:
     """
     Wraps SB3 PPO. Provides:
-      - get_action(state) → int
+      - get_action(state) â†’ int
       - give_reward(r)
-      - update()         → trains on accumulated steps
+      - update()         â†’ trains on accumulated steps
       - save/load
     """
 
@@ -116,7 +116,7 @@ class PPOAgent:
         self._last_action  = 0
         self._update_timer = 0.0
 
-    # ── Build normalized state vector ────────────────────────────────
+    # â”€â”€ Build normalized state vector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def build_state(self, level_timer: float, player_lives: int,
                     enemy_count: int, dist_to_princess: float,
                     jump_freq: int, run_freq: int,
@@ -132,7 +132,7 @@ class PPOAgent:
             (player_health - 1) / 1.0,
         ], dtype=np.float32)
 
-    # ── Get action (inference) ────────────────────────────────────────
+    # â”€â”€ Get action (inference) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def get_action(self, state: np.ndarray) -> int:
         self.env.set_state(state)
         action, _ = self.model.predict(state, deterministic=False)
@@ -140,7 +140,7 @@ class PPOAgent:
         self._last_action = int(action)
         return self._last_action
 
-    # ── Reward signals (called from game systems) ─────────────────────
+    # â”€â”€ Reward signals (called from game systems) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def reward_prevention(self):
         """+1 for each second player hasn't reached princess."""
         self.env.give_reward(1.0)
@@ -153,7 +153,7 @@ class PPOAgent:
         """+0.2 for each unique enemy formation used in last 10s."""
         self.env.give_reward(0.2)
 
-    # ── Periodic update (call every PPO_UPDATE_INTERVAL seconds) ─────
+    # â”€â”€ Periodic update (call every PPO_UPDATE_INTERVAL seconds) â”€â”€â”€â”€â”€
     def tick(self, dt: float, state: np.ndarray) -> int:
         """
         Returns a strategic action every PPO_UPDATE_INTERVAL seconds.
@@ -171,7 +171,7 @@ class PPOAgent:
             return self.get_action(state)
         return self._last_action
 
-    # ── Persistence ──────────────────────────────────────────────────
+    # â”€â”€ Persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def save(self):
         os.makedirs(os.path.dirname(PPO_MODEL_PATH), exist_ok=True)
         self.model.save(PPO_MODEL_PATH)
