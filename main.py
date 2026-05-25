@@ -23,7 +23,7 @@ LEVELS=[Level01,Level02,Level03]; NUM_LEVELS=3
 class Game:
     def __init__(self):
         pygame.init(); pygame.mixer.init()
-        pygame.mixer.music.load("assets/sounds/menu_music.mp3")
+        pygame.mixer.music.load("assets/sounds/menu_music_cropped.mp3")
         pygame.mixer.music.set_volume(0.5)
         pygame.mixer.music.play(-1)
         pygame.mixer.music.set_pos(12)
@@ -171,6 +171,7 @@ class Game:
                     if event.type==pygame.KEYDOWN:
                         if event.key==pygame.K_p: self._pause_cursor=0; self.scene=SCENE_PAUSE
                         elif event.key==pygame.K_ESCAPE: self.scene=SCENE_MENU; pygame.mixer.music.play(-1)
+                        pygame.mixer.music.set_pos(12)
                     if self.player: self.player.handle_event(event)
                 elif self.scene==SCENE_PAUSE and event.type==pygame.KEYDOWN:
                     if event.key==pygame.K_UP: self._pause_cursor=(self._pause_cursor-1)%3
@@ -179,6 +180,7 @@ class Game:
                         if self._pause_cursor==0: self.scene=SCENE_GAME
                         elif self._pause_cursor==1: self._settings_from=SCENE_PAUSE; self._settings_cursor=0; self.scene=SCENE_SETTINGS
                         elif self._pause_cursor==2: self.scene=SCENE_MENU; pygame.mixer.music.play(-1)
+                        pygame.mixer.music.set_pos(12)
                     elif event.key in (pygame.K_p,pygame.K_ESCAPE): self.scene=SCENE_GAME
                 elif self.scene==SCENE_SETTINGS and event.type==pygame.KEYDOWN:
                     self._settings_key(event)
@@ -188,6 +190,7 @@ class Game:
                         elif self.scene==SCENE_LEVEL_COMPLETE: self.load_level(self.gs.level_index); self.scene=SCENE_GAME
                         elif self.scene==SCENE_WIN: self.gs.challenge_mode=True; self.gs.level_index=0; self.load_level(0); self.scene=SCENE_GAME
                     elif event.key==pygame.K_ESCAPE: self.scene=SCENE_MENU; pygame.mixer.music.play(-1)
+                    pygame.mixer.music.set_pos(12)
 
             if self.scene==SCENE_MENU: self.screens.draw_main_menu(self._menu_cursor)
             elif self.scene==SCENE_GAME: self.update_game(dt); self.draw_game()
