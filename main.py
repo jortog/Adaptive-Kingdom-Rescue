@@ -170,8 +170,7 @@ class Game:
                 elif self.scene==SCENE_GAME:
                     if event.type==pygame.KEYDOWN:
                         if event.key==pygame.K_p: self._pause_cursor=0; self.scene=SCENE_PAUSE
-                        elif event.key==pygame.K_ESCAPE: self.scene=SCENE_MENU; pygame.mixer.music.play(-1)
-                        pygame.mixer.music.set_pos(12)
+                        elif event.key==pygame.K_ESCAPE: self.scene=SCENE_MENU; pygame.mixer.music.play(-1); pygame.mixer.music.set_pos(12)
                     if self.player: self.player.handle_event(event)
                 elif self.scene==SCENE_PAUSE and event.type==pygame.KEYDOWN:
                     if event.key==pygame.K_UP: self._pause_cursor=(self._pause_cursor-1)%3
