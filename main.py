@@ -33,10 +33,11 @@ class Game:
         self.gs=GameState(); self.hud=HUD()
         self.screens=ScreenManager(self.screen)
         self.scene=SCENE_MENU
+        self._finished_level=1
         self.level=self.player=self.camera=self.scoring=self.ai_ensemble=self.princess=None
         self.enemies=[]; self.powerups=[]
         self.time_remaining=LEVEL_TIME_LIMIT
-        self._aerial_spawn_cd=0.0; self.AERIAL_SPAWN_CD=4.0
+        self._aerial_spawn_cd=0.0; self.AERIAL_SPAWN_CD=2.5
         self.selected_level=0
         self.settings={'sound':True,'music':True,'ai_difficulty':'normal'}
         self._menu_cursor=0; self._pause_cursor=0
@@ -72,12 +73,16 @@ class Game:
         ah=self.gs.get_action_history_padded()
         ps=self.ai_ensemble.ppo.build_state(self.gs.level_time_elapsed,self.gs.lives,len(self.enemies),abs(self.princess.rect.centerx-self.player.rect.centerx),jf,rf,self.player.vel_x,self.player.size_level)
         self.ai_ensemble.pre_frame(dt,ah,ps)
+        player_jumped = self.player.vel_y < -300 and not self.player.on_ground
         for e in self.enemies:
             if not e.alive: continue
             cmd=self.ai_ensemble.get_command(e.rect,self.player.rect,self.player.vel_x,jf,rf,len(self.enemies),self.player.size_level)
-            e.set_command(cmd); e.update(dt,self.player.rect,self.level.platforms)
+            e.set_command(cmd)
+            if player_jumped and abs(e.rect.centerx - self.player.rect.centerx) < 380:
+                e.mirror_jump(self.player.vel_y)
+            e.update(dt,self.player.rect,self.level.platforms)
         self._aerial_spawn_cd-=dt
-        if self.ai_ensemble._ppo_action==STRAT_SPAWN_AERIAL and self._aerial_spawn_cd<=0 and jf>=3:
+        if self.ai_ensemble._ppo_action==STRAT_SPAWN_AERIAL and self._aerial_spawn_cd<=0 and jf>=2:
             import random; x=self.player.rect.centerx+random.randint(-TILE_SIZE,TILE_SIZE); y=self.player.rect.top-3*TILE_SIZE
             fly=Enemy(x,y,enemy_type="flying"); fly.set_command(1); self.enemies.append(fly)
             self._aerial_spawn_cd=self.AERIAL_SPAWN_CD
@@ -109,16 +114,62 @@ class Game:
                 return
         for pu in list(self.powerups):
             if self.player.rect.colliderect(pu.rect):
-                if pu.kind=="oneup": self.gs.lives=min(self.gs.lives+1,9)
-                else: self.player.collect_powerup(pu.kind)
+                if pu.kind == "oneup":
+                    self.gs.lives = min(self.gs.lives + 1, 9)
+                else:
+                    self.player.collect_powerup(pu.kind)
+
                 self.audio.play_coin()
-                self.scoring.award_powerup(pu.kind); self.powerups.remove(pu)
+                self.scoring.award_powerup(pu.kind)
+                self.powerups.remove(pu)
+
         if self.player.rect.colliderect(self.princess.rect):
-            self.scoring.award_level_complete(self.time_remaining,self.gs.damage_taken_this_level==0)
-            self.ai_ensemble.learn_after_level(list(self.gs.action_history)); self.ai_ensemble.save_all()
-            self.gs.level_index+=1
-            self.audio.play_win()
-            self.scene=SCENE_WIN if self.gs.level_index>=NUM_LEVELS else SCENE_LEVEL_COMPLETE; return
+            self.scoring.award_level_complete(
+                self.time_remaining,
+                self.gs.damage_taken_this_level == 0
+            )
+
+            self.ai_ensemble.learn_after_level(
+                list(self.gs.action_history)
+            )
+
+            self.ai_ensemble.save_all()
+
+            finished_level = self.gs.level_index + 1
+            self._finished_level = finished_level
+
+            self.gs.level_index += 1
+
+            if self.gs.level_index >= NUM_LEVELS:
+                self.scene = SCENE_WIN
+            else:
+                self.scene = SCENE_LEVEL_COMPLETE
+
+            return
+                
+            if self.player.rect.colliderect(self.princess.rect):
+                self.scoring.award_level_complete(
+                self.time_remaining,
+                self.gs.damage_taken_this_level == 0
+            )
+
+            self.ai_ensemble.learn_after_level(
+                list(self.gs.action_history)
+            )
+
+            self.ai_ensemble.save_all()
+
+            finished_level = self.gs.level_index + 1
+            self._finished_level = finished_level
+
+            self.gs.level_index += 1
+
+            if self.gs.level_index >= NUM_LEVELS:
+                self.scene = SCENE_WIN
+            else:
+                self.scene = SCENE_LEVEL_COMPLETE
+
+            return
         if self.player.rect.top>self.level.pixel_height+100 or self.time_remaining<=0:
             self.gs.lives-=1; self.audio.play_death(); self.gs.player_deaths_this_level+=1
             self.scene=SCENE_GAME_OVER if self.gs.lives<=0 else self.scene
@@ -201,7 +252,7 @@ class Game:
             elif self.scene==SCENE_SETTINGS:
                 if self._settings_from==SCENE_PAUSE: self.draw_game()
                 self.screens.draw_settings(self._settings_cursor,self.settings,self.selected_level,NUM_LEVELS,from_game=(self._settings_from==SCENE_PAUSE))
-            elif self.scene==SCENE_LEVEL_COMPLETE: self.screens.draw_level_complete(self.gs.score,self.gs.level_index-1)
+            elif self.scene==SCENE_LEVEL_COMPLETE: self.screens.draw_level_complete(self.gs.score, getattr(self,'_finished_level',self.gs.level_index))
             elif self.scene==SCENE_GAME_OVER: self.screens.draw_game_over(self.gs.score)
             elif self.scene==SCENE_WIN: self.screens.draw_win_screen(self.gs.score)
             pygame.display.flip()

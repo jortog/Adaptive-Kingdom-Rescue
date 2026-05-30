@@ -369,29 +369,78 @@ class ScreenManager:
     def draw_level_complete(self,score,level_index):
         t = self._t
         _blit_bg(self.surface)
-        _draw_stars(self.surface,t)
-        _draw_moon(self.surface,SCREEN_WIDTH-195,108)
-        _draw_fog(self.surface,t)
-        _draw_fireflies(self.surface,t)
+        _draw_stars(self.surface, t)
+        _draw_moon(self.surface, SCREEN_WIDTH-195, 108)
+        _draw_fog(self.surface, t)
 
-        for i in range(10):
-            ang = t*1.5+i*math.pi/5
-            cx  = SCREEN_WIDTH//2+int((95+18*math.sin(t+i))*math.cos(ang))
-            cy  = 80+int((38+10*math.sin(t*2+i))*math.sin(ang))
-            pygame.draw.circle(self.surface,C_GOLD,(cx,cy),6+int(2*abs(math.sin(t+i))))
+        # Dark vignette overlay
+        ov = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        ov.fill((0,0,0,80))
+        self.surface.blit(ov, (0,0))
 
-        bob = int(math.sin(t*2)*4)
-        _center_outline(self.surface,"LEVEL  COMPLETE!",self.fp_title,C_GOLD,116+bob,n=2,sc=(75,48,0))
+        # ── 3D Title plate ────────────────────────────────────
+        bw, bh = 720, 110
+        bx, by = SCREEN_WIDTH//2 - bw//2, 100
+        # Drop shadow
+        sh = pygame.Surface((bw+8, bh+8), pygame.SRCALPHA)
+        sh.fill((0,0,0,140))
+        self.surface.blit(sh, (bx+6, by+8))
+        # Panel base
+        pn = pygame.Surface((bw, bh), pygame.SRCALPHA)
+        for yy in range(bh):
+            tt = yy/bh
+            r=int(20+45*tt); g=int(28+55*tt); b=int(60+90*tt)
+            pygame.draw.line(pn,(r,g,b,235),(0,yy),(bw,yy))
+        pygame.draw.rect(pn, (255,225,80,255), (0,0,bw,bh), 3, border_radius=10)
+        pygame.draw.line(pn, (255,245,160,180), (4,4),(bw-5,4), 1)
+        pygame.draw.line(pn, (60,40,0,200), (4,bh-3),(bw-5,bh-3), 1)
+        self.surface.blit(pn, (bx, by))
 
-        
-        _center_outline(self.surface,f"World {level_index} Cleared!",self.fp_small,(110,245,110),233,n=1,sc=(0,55,0))
-        _center_outline(self.surface,f"SCORE  {score:07d}",self.fp_large,C_GOLD,256,n=2,sc=(75,48,0))
-        _center(self.surface,"Princess Rescued!",self.fs_med,(215,178,138),300)
+        # Title text with deep 3D extrusion
+        bob = int(math.sin(t*2)*3)
+        for d in range(5, 0, -1):
+            shimg = self.fp_title.render("LEVEL COMPLETE", True, (60,40,0))
+            self.surface.blit(shimg, (SCREEN_WIDTH//2-shimg.get_width()//2+d, by+22+bob+d))
+        ti = self.fp_title.render("LEVEL COMPLETE", True, C_GOLD)
+        self.surface.blit(ti, (SCREEN_WIDTH//2-ti.get_width()//2, by+22+bob))
 
-        if int(t*2)%2==0:
-            _center_outline(self.surface,"PRESS  ENTER  TO  CONTINUE",self.fp_med,C_GREEN,372,n=2,sc=(0,55,0))
-        _center(self.surface,"The enemy army is learning your moves...",self.fp_small,(195,75,75),416)
+        # ── 3D Score plate ────────────────────────────────────
+        sw, sh2 = 360, 84
+        sx, sy = SCREEN_WIDTH//2 - sw//2, 250
+        shadow = pygame.Surface((sw+6, sh2+6), pygame.SRCALPHA)
+        shadow.fill((0,0,0,140))
+        self.surface.blit(shadow, (sx+4, sy+6))
+        sp = pygame.Surface((sw, sh2), pygame.SRCALPHA)
+        for yy in range(sh2):
+            tt = yy/sh2
+            r=int(15+30*tt); g=int(22+40*tt); b=int(50+70*tt)
+            pygame.draw.line(sp,(r,g,b,225),(0,yy),(sw,yy))
+        pygame.draw.rect(sp, (255,215,80,220), (0,0,sw,sh2), 2, border_radius=8)
+        pygame.draw.line(sp, (255,245,160,160), (4,4),(sw-5,4), 1)
+        self.surface.blit(sp, (sx, sy))
 
+        for d in range(3, 0, -1):
+            scsh = self.fp_large.render(f"SCORE {score:07d}", True, (60,40,0))
+            self.surface.blit(scsh, (SCREEN_WIDTH//2-scsh.get_width()//2+d, sy+22+d))
+        sci = self.fp_large.render(f"SCORE {score:07d}", True, C_GOLD)
+        self.surface.blit(sci, (SCREEN_WIDTH//2-sci.get_width()//2, sy+22))
+
+        for d in range(2, 0, -1):
+            wsh = self.fp_small.render(f"WORLD {level_index} CLEARED", True, (0,30,0))
+            self.surface.blit(wsh, (SCREEN_WIDTH//2-wsh.get_width()//2+d, sy+58+d))
+        wi = self.fp_small.render(f"WORLD {level_index} CLEARED", True, (120,255,120))
+        self.surface.blit(wi, (SCREEN_WIDTH//2-wi.get_width()//2, sy+58))
+
+        # ── Continue prompt (blinking, 3D) ────────────────────
+        if int(t*2)%2 == 0:
+            py2 = 400
+            for d in range(3, 0, -1):
+                psh = self.fp_med.render("PRESS ENTER TO CONTINUE", True, (0,40,0))
+                self.surface.blit(psh, (SCREEN_WIDTH//2-psh.get_width()//2+d, py2+d))
+            pi = self.fp_med.render("PRESS ENTER TO CONTINUE", True, C_GREEN)
+            self.surface.blit(pi, (SCREEN_WIDTH//2-pi.get_width()//2, py2))
+
+    
     def draw_game_over(self,score):
         t = self._t
         _blit_bg(self.surface)
