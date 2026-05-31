@@ -94,13 +94,20 @@ STRAT_COUNT = 7
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODELS_DIR = os.path.join(BASE_DIR, "data", "models")
+# Baseline models are optional shipped defaults. Runtime models are local,
+# ignored saves that carry the player's adapted behavior across launches.
+BASELINE_MODELS_DIR = os.path.join(BASE_DIR, "data", "models")
+RUNTIME_MODELS_DIR = os.path.join(BASE_DIR, "data", "runtime_models")
 LOGS_DIR = os.path.join(BASE_DIR, "data", "logs")
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 SPRITES_DIR = os.path.join(ASSETS_DIR, "sprites")
 SOUNDS_DIR = os.path.join(ASSETS_DIR, "sounds")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 
-RNN_MODEL_PATH = os.path.join(MODELS_DIR, "rnn_predictor.pt")
-PPO_MODEL_PATH = os.path.join(MODELS_DIR, "ppo_agent.zip")
-DT_MODEL_PATH = os.path.join(MODELS_DIR, "decision_tree.pkl")
+RNN_BASELINE_MODEL_PATH = os.path.join(BASELINE_MODELS_DIR, "rnn_predictor.pt")
+PPO_BASELINE_MODEL_PATH = os.path.join(BASELINE_MODELS_DIR, "ppo_agent.zip")
+DT_BASELINE_MODEL_PATH = os.path.join(BASELINE_MODELS_DIR, "decision_tree.pkl")
+
+RNN_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "rnn_predictor.pt")
+PPO_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "ppo_agent.zip")
+DT_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "decision_tree.pkl")

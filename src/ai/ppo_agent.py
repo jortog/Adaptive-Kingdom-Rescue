@@ -23,7 +23,13 @@ import numpy as np
 from gymnasium import spaces
 from stable_baselines3 import PPO as SB3PPO
 
-from config import PLAYER_DASH_SPEED, PLAYER_MAX_LIVES, PPO_MODEL_PATH, STRAT_COUNT
+from config import (
+    PLAYER_DASH_SPEED,
+    PLAYER_MAX_LIVES,
+    PPO_BASELINE_MODEL_PATH,
+    PPO_MODEL_PATH,
+    STRAT_COUNT,
+)
 
 
 STATE_DIM = 8
@@ -83,8 +89,11 @@ class PPOAgent:
 
         self.env = KingdomRescueEnv()
 
-        if os.path.exists(PPO_MODEL_PATH):
-            self.model = SB3PPO.load(PPO_MODEL_PATH, env=self.env)
+        load_path = PPO_MODEL_PATH
+        if not os.path.exists(load_path):
+            load_path = PPO_BASELINE_MODEL_PATH
+        if os.path.exists(load_path):
+            self.model = SB3PPO.load(load_path, env=self.env)
         else:
             self.model = SB3PPO(
                 "MlpPolicy",
@@ -172,5 +181,8 @@ class PPOAgent:
         self.model.save(PPO_MODEL_PATH)
 
     def load(self):
-        if os.path.exists(PPO_MODEL_PATH):
-            self.model = SB3PPO.load(PPO_MODEL_PATH, env=self.env)
+        load_path = PPO_MODEL_PATH
+        if not os.path.exists(load_path):
+            load_path = PPO_BASELINE_MODEL_PATH
+        if os.path.exists(load_path):
+            self.model = SB3PPO.load(load_path, env=self.env)

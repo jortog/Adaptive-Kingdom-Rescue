@@ -61,6 +61,7 @@ class Game:
         self.enemies = []
         self.powerups = []
         self.time_remaining = LEVEL_TIME_LIMIT
+        self._max_level_progress = 0.0
         self._aerial_spawn_cd = 0.0
         self.AERIAL_SPAWN_CD = 2.5
         self.selected_level = 0
@@ -78,6 +79,7 @@ class Game:
         self.level = LEVELS[idx]()
         self.gs.reset_level()
         self.time_remaining = LEVEL_TIME_LIMIT
+        self._max_level_progress = 0.0
         self._aerial_spawn_cd = 0.0
         self.player = Player(self.level.spawn_x, self.level.spawn_y, self.gs)
         self.player.audio = self.audio
@@ -281,8 +283,8 @@ class Game:
 
     def draw_game(self):
         cx = self.camera.int_x
-        y_offset = max(0, SCREEN_HEIGHT - self.level.pixel_height)
-        self.level.draw_tiles(self.screen, cx, world_y_offset=y_offset)
+        y_offset = self.level.render_y
+        self.level.draw_tiles(self.screen, cx)
         for pu in self.powerups:
             pu.draw(self.screen, cx, y_offset)
         self.princess.update_bob(1 / 60)
@@ -290,12 +292,13 @@ class Game:
         for e in self.enemies:
             e.draw(self.screen, cx, y_offset)
         self.player.draw(self.screen, cx, y_offset)
-        level_progress = self.player.rect.centerx / max(self.princess.rect.centerx, 1)
+        current_progress = self.player.rect.centerx / max(self.princess.rect.centerx, 1)
+        self._max_level_progress = max(self._max_level_progress, current_progress)
         self.hud.draw(
             self.screen,
             self.gs,
             self.time_remaining,
-            level_progress,
+            self._max_level_progress,
         )
 
     def _apply_ai(self):

@@ -15,7 +15,12 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import os
-from config import ACTION_COUNT, AI_ACTION_HISTORY_LEN, RNN_MODEL_PATH
+from config import (
+    ACTION_COUNT,
+    AI_ACTION_HISTORY_LEN,
+    RNN_BASELINE_MODEL_PATH,
+    RNN_MODEL_PATH,
+)
 
 
 class LSTMModel(nn.Module):
@@ -141,9 +146,12 @@ class RNNPredictor:
         torch.save(self.model.state_dict(), RNN_MODEL_PATH)
 
     def load(self):
-        if os.path.exists(RNN_MODEL_PATH):
+        load_path = RNN_MODEL_PATH
+        if not os.path.exists(load_path):
+            load_path = RNN_BASELINE_MODEL_PATH
+        if os.path.exists(load_path):
             try:
-                state = torch.load(RNN_MODEL_PATH, map_location=self.device)
+                state = torch.load(load_path, map_location=self.device)
                 self.model.load_state_dict(state)
             except Exception:
                 pass  # Start fresh if model file is corrupted

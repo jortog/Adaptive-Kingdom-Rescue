@@ -22,6 +22,7 @@ class LevelBase:
         self.pixel_height = (
             len(self.TILE_MAP) * TILE_SIZE if self.TILE_MAP else SCREEN_HEIGHT
         )
+        self.render_y = max(0, SCREEN_HEIGHT - self.pixel_height)
 
     def _build_from_tilemap(self):
         for row_idx, row in enumerate(self.TILE_MAP):
@@ -40,7 +41,7 @@ class LevelBase:
                     self.spawn_y = row_idx * TILE_SIZE - TILE_SIZE
                     break
 
-    def draw_tiles(self, surface, camera_offset_x, camera_offset_y=0, world_y_offset=0):
+    def draw_tiles(self, surface, camera_offset_x, camera_offset_y=0):
         draw_background(surface, camera_offset_x)
         for row_idx, row in enumerate(self.TILE_MAP):
             for col_idx, tile in enumerate(row):
@@ -48,7 +49,7 @@ class LevelBase:
                     continue
                 rect = pygame.Rect(
                     col_idx * TILE_SIZE - camera_offset_x,
-                    row_idx * TILE_SIZE + world_y_offset - camera_offset_y,
+                    row_idx * TILE_SIZE + self.render_y - camera_offset_y,
                     TILE_SIZE,
                     TILE_SIZE,
                 )

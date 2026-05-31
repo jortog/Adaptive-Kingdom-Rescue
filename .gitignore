@@ -9,3 +9,4 @@ __pycache__/
 crash_log.txt
 output.txt
 update_check.zip
+data/runtime_models/

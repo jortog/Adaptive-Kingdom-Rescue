@@ -21,6 +21,7 @@ from config import (
     STRAT_RETREAT,
     STRAT_COUNT,
     DT_MODEL_PATH,
+    DT_BASELINE_MODEL_PATH,
 )
 
 
@@ -240,7 +241,10 @@ class DecisionTreeAI:
             pickle.dump(self.model, f)
 
     def load(self):
-        if os.path.exists(DT_MODEL_PATH):
-            with open(DT_MODEL_PATH, "rb") as f:
+        load_path = DT_MODEL_PATH
+        if not os.path.exists(load_path):
+            load_path = DT_BASELINE_MODEL_PATH
+        if os.path.exists(load_path):
+            with open(load_path, "rb") as f:
                 self.model = pickle.load(f)
             self._is_trained = True

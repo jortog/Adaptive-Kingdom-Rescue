@@ -55,6 +55,7 @@ class HUD:
         pygame.font.init()
         self.fp_val = _pf(18)
         self.fp_lbl = _pf(9)
+        self.time_font = pygame.font.SysFont("Courier New", 23, bold=True)
 
     def draw(self, surface, gs, time_remaining, level_progress):
         # Panel
@@ -116,19 +117,35 @@ class HUD:
         time_label = self.fp_lbl.render("TIME", True, C_DIM)
         time_label_x = SCREEN_WIDTH - time_label.get_width() - 18
         _text3d(surface, "TIME", self.fp_lbl, C_DIM, C_BLACK, time_label_x, 5)
-        t = max(0, int(time_remaining))
-        tcol = C_RED if t < 20 else (255, 165, 40) if t < 40 else C_CREAM
-        tsh = C_RED_D if t < 20 else (110, 75, 0) if t < 40 else (60, 50, 30)
-        time_text = f"{t:03d}"
-        time_img = self.fp_val.render(time_text, True, tcol)
+        total_seconds = max(0, int(time_remaining))
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        tcol = (
+            C_RED
+            if total_seconds < 20
+            else (255, 165, 40)
+            if total_seconds < 40
+            else C_CREAM
+        )
+        tsh = (
+            C_RED_D
+            if total_seconds < 20
+            else (110, 75, 0)
+            if total_seconds < 40
+            else (60, 50, 30)
+        )
+        time_text = f"{minutes}:{seconds:02d}"
+        time_img = self.time_font.render(time_text, True, tcol)
+        time_box = pygame.Rect(SCREEN_WIDTH - 82, 17, 64, 25)
+        pygame.draw.rect(surface, (3, 5, 14, 160), time_box, border_radius=3)
         _text3d(
             surface,
             time_text,
-            self.fp_val,
+            self.time_font,
             tcol,
             tsh,
-            SCREEN_WIDTH - time_img.get_width() - 18,
-            16,
+            time_box.right - time_img.get_width() - 4,
+            time_box.y - 1,
         )
 
         # Level progress bar
