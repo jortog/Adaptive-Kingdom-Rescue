@@ -24,7 +24,6 @@ import os
 import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3 import PPO as SB3PPO
-from stable_baselines3.common.env_util import make_vec_env
 from config import STRAT_COUNT, PPO_MODEL_PATH, PLAYER_MAX_LIVES, PLAYER_DASH_SPEED
 
 

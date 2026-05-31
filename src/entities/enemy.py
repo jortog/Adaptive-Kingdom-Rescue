@@ -1,6 +1,5 @@
 import pygame
 import math
-import time as _time
 from config import (
     ENEMY_GROUND_WIDTH, ENEMY_GROUND_HEIGHT,
     ENEMY_FLYING_WIDTH, ENEMY_FLYING_HEIGHT,
@@ -47,8 +46,6 @@ class Enemy(pygame.sprite.Sprite):
         # hop timer for hop-chop and flophopper
         self._hop_timer=0.0
         self._hop_interval=0.8 if enemy_type=="ground" else 0.5
-        # flophopper jump-mirroring
-        self._match_jump_timer=0.0
         self._anim=0.0
 
     def set_command(self, command):

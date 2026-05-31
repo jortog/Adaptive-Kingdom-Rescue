@@ -1,5 +1,5 @@
 # src/systems/game_state.py
-from config import PLAYER_START_LIVES, ACTION_COUNT, AI_ACTION_HISTORY_LEN
+from config import PLAYER_START_LIVES, AI_ACTION_HISTORY_LEN
 from collections import deque
 import time
 
