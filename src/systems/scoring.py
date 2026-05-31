@@ -5,13 +5,13 @@ All modifiers are explained in config.py comments and the proposal Section 2.2.B
 
 import time
 from config import (
+    PLAYER_MAX_LIVES,
     SCORE_DEFEAT_ENEMY,
     SCORE_DEFEAT_JUMP_BONUS,
     SCORE_MUSHROOM,
     SCORE_FLOWER,
     SCORE_STAR,
     SCORE_SHIELD,
-    SCORE_CHECKPOINT,
     SCORE_LEVEL_COMPLETE,
     SCORE_TIME_BONUS_RATE,
     SCORE_NO_DAMAGE_BONUS,
@@ -68,20 +68,6 @@ class ScoringSystem:
         self._add(pts)
         return pts
 
-    def award_checkpoint(self, route: str = "middle") -> int:
-        pts = SCORE_CHECKPOINT
-        # AI adjustment: repeated route = 50% reduction + 100 alt bonus
-        if (
-            route in self.gs.route_history[-5:]
-            and self.gs.route_history.count(route) >= 3
-        ):
-            pts = pts // 2
-        else:
-            pts += 100  # exploration bonus
-        self.gs.route_history.append(route)
-        self._add(pts)
-        return pts
-
     def award_level_complete(self, time_remaining: float, took_no_damage: bool) -> int:
         pts = SCORE_LEVEL_COMPLETE
         pts += max(0, int(time_remaining * SCORE_TIME_BONUS_RATE))
@@ -97,6 +83,6 @@ class ScoringSystem:
         self.score += pts
         self.gs.score = self.score
         # Extra life threshold
-        while self.score >= self._next_life_score and self.gs.lives < 9:
+        while self.score >= self._next_life_score and self.gs.lives < PLAYER_MAX_LIVES:
             self.gs.lives += 1
             self._next_life_score += SCORE_EXTRA_LIFE_THRESHOLD

@@ -9,6 +9,7 @@ from config import (
     ELEVATION_CAMP_FULL,
     FPS,
     LEVEL_TIME_LIMIT,
+    PLAYER_MAX_LIVES,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     STAR_LEVEL_PENALTY,
@@ -116,8 +117,7 @@ class Game:
             )
         # Cap on total live enemies so aerial spawns can't snowball into a swarm.
         self._enemy_cap = len(self.enemies) + 2
-        if self.ai_ensemble is not None:
-            self.ai_ensemble.ppo.max_enemies = max(self._enemy_cap, 1)
+        self.ai_ensemble.ppo.max_enemies = max(self._enemy_cap, 1)
         px, py = self.level.get_princess_position()
         self.princess = Princess(px, py)
         # Random but reachable: each power-up rests on the ground or on top of a
@@ -157,8 +157,21 @@ class Game:
 
     def _record_ppo_transition(self, state, action, reward, done=False):
         next_state = self._build_ppo_state()
-        self.gs.add_ppo_experience(state, action, reward, next_state, done)
         self.ai_ensemble.ppo.observe(state, action, reward, next_state, done)
+
+    def _lose_life(self, ppo_state, ppo_action, frame_reward):
+        """Shared handling when the player loses a life: bookkeeping, death SFX,
+        game-over check, the terminal PPO transition, and a level reload if any
+        lives remain. Callers apply situational reward shaping first, then return
+        immediately after calling this."""
+        self.gs.lives -= 1
+        self.gs.damage_taken_this_level += 1
+        frame_reward += 0.75
+        self.audio.play_death()
+        self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
+        self._record_ppo_transition(ppo_state, ppo_action, frame_reward, done=True)
+        if self.gs.lives > 0:
+            self.load_level(self.gs.level_index)
 
     def update_game(self, dt):
         self.time_remaining -= dt
@@ -252,19 +265,10 @@ class Game:
                 old_size = self.player.size_level
                 old_shields = self.player.shield_count
                 if self.player.take_damage():
-                    self.gs.damage_taken_this_level += 1
-                    self.gs.lives -= 1
-                    frame_reward += 0.75
-                    self.audio.play_death()
+                    # Extra penalty for dying in the opening seconds.
                     if self.gs.level_time_elapsed < 5.0:
                         frame_reward -= 0.5
-                    self.gs.player_deaths_this_level += 1
-                    self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-                    self._record_ppo_transition(
-                        ppo_state, ppo_action, frame_reward, done=True
-                    )
-                    if self.gs.lives > 0:
-                        self.load_level(self.gs.level_index)
+                    self._lose_life(ppo_state, ppo_action, frame_reward)
                     return
                 elif (
                     self.player.size_level < old_size
@@ -274,22 +278,12 @@ class Game:
                     frame_reward += 0.25
         for hz in self.level.hazards:
             if self.player.rect.colliderect(hz):
-                self.gs.lives -= 1
-                self.audio.play_death()
-                self.gs.player_deaths_this_level += 1
-                self.gs.damage_taken_this_level += 1
-                frame_reward += 0.75
-                self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-                self._record_ppo_transition(
-                    ppo_state, ppo_action, frame_reward, done=True
-                )
-                if self.gs.lives > 0:
-                    self.load_level(self.gs.level_index)
+                self._lose_life(ppo_state, ppo_action, frame_reward)
                 return
         for pu in list(self.powerups):
             if self.player.rect.colliderect(pu.rect):
                 if pu.kind == "oneup":
-                    self.gs.lives = min(self.gs.lives + 1, 9)
+                    self.gs.lives = min(self.gs.lives + 1, PLAYER_MAX_LIVES)
                 else:
                     self.player.collect_powerup(pu.kind)
 
@@ -323,17 +317,7 @@ class Game:
             self.player.rect.top > self.level.pixel_height + 100
             or self.time_remaining <= 0
         ):
-            self.gs.lives -= 1
-            self.audio.play_death()
-            self.gs.player_deaths_this_level += 1
-            self.gs.damage_taken_this_level += 1
-            frame_reward += 0.75
-            self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-            self._record_ppo_transition(
-                ppo_state, ppo_action, frame_reward, done=True
-            )
-            if self.gs.lives > 0:
-                self.load_level(self.gs.level_index)
+            self._lose_life(ppo_state, ppo_action, frame_reward)
             return
 
         self._record_ppo_transition(ppo_state, ppo_action, frame_reward)

@@ -95,7 +95,6 @@ class PPOAgent:
         self.model = self._load_or_create_model()
 
         self._step_buffer: list[tuple] = []
-        self._last_obs = np.zeros(STATE_DIM, dtype=np.float32)
         self._last_action = 0
         self._has_action = False
         self._update_timer = 0.0
@@ -134,7 +133,6 @@ class PPOAgent:
         state = np.clip(np.asarray(state, dtype=np.float32), 0.0, 1.0)
         self.env.set_state(state)
         action, _ = self.model.predict(state, deterministic=False)
-        self._last_obs = state
         self._last_action = int(np.asarray(action).item())
         self._has_action = True
         return self._last_action

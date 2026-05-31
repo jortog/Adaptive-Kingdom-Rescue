@@ -45,7 +45,6 @@ class DecisionTreeAI:
 
     def __init__(self):
         self.model = DecisionTreeClassifier(max_depth=6, random_state=42)
-        self._is_trained = False
         self._base_X = None
         self._base_y = None
         self._bootstrap()
@@ -169,19 +168,6 @@ class DecisionTreeAI:
         self._base_X = X
         self._base_y = y
         self.model.fit(X, y)
-        self._is_trained = True
-
-    # Predict
-    def predict(self, features: np.ndarray) -> int:
-        """
-        features: 1D numpy array of shape (FEATURE_COUNT,)
-        Returns: integer action index
-        """
-        assert len(features) == self.FEATURE_COUNT, (
-            f"Expected {self.FEATURE_COUNT} features, got {len(features)}"
-        )
-        pred = self.model.predict(features.reshape(1, -1))
-        return int(pred[0])
 
     def predict_proba(self, features: np.ndarray) -> np.ndarray:
         """
@@ -233,7 +219,6 @@ class DecisionTreeAI:
         else:
             X, y = X_new, y_new
         self.model.fit(X, y)
-        self._is_trained = True
 
     def save(self):
         os.makedirs(os.path.dirname(DT_MODEL_PATH), exist_ok=True)
@@ -247,4 +232,3 @@ class DecisionTreeAI:
         if os.path.exists(load_path):
             with open(load_path, "rb") as f:
                 self.model = pickle.load(f)
-            self._is_trained = True
