@@ -1,6 +1,5 @@
 """
 Decision Tree AI Layer
-─────────────────────
 Uses scikit-learn's DecisionTreeClassifier wrapped with hand-crafted
 training examples that encode the 50 designer rules described in the proposal.
 
@@ -14,9 +13,14 @@ import pickle
 import os
 from sklearn.tree import DecisionTreeClassifier
 from config import (
-    STRAT_PATROL, STRAT_CHASE, STRAT_SPAWN_AERIAL,
-    STRAT_BLOCK_UPPER, STRAT_BLOCK_LOWER, STRAT_AMBUSH, STRAT_RETREAT,
-    STRAT_COUNT, DT_MODEL_PATH
+    STRAT_PATROL,
+    STRAT_CHASE,
+    STRAT_SPAWN_AERIAL,
+    STRAT_BLOCK_UPPER,
+    STRAT_AMBUSH,
+    STRAT_RETREAT,
+    STRAT_COUNT,
+    DT_MODEL_PATH,
 )
 
 
@@ -46,7 +50,7 @@ class DecisionTreeAI:
         self._bootstrap()
         self.load()
 
-    # ── Bootstrap with synthetic rule-encoding data ───────────────────
+    # Bootstrap with synthetic rule-encoding data
     def _bootstrap(self):
         """
         Encode the designer's 50 rules as synthetic training samples.
@@ -56,51 +60,107 @@ class DecisionTreeAI:
 
         # Rule: close + player jumping → spawn aerial
         for _ in range(80):
-            X.append([np.random.uniform(0, 150), np.random.uniform(-200, 50),
-                       np.random.uniform(-300, 300), np.random.randint(3, 10),
-                       np.random.randint(0, 5), np.random.randint(1, 6), 1])
+            X.append(
+                [
+                    np.random.uniform(0, 150),
+                    np.random.uniform(-200, 50),
+                    np.random.uniform(-300, 300),
+                    np.random.randint(3, 10),
+                    np.random.randint(0, 5),
+                    np.random.randint(1, 6),
+                    1,
+                ]
+            )
             y.append(STRAT_SPAWN_AERIAL)
 
         # Rule: very close → chase
         for _ in range(100):
-            X.append([np.random.uniform(0, 80), np.random.uniform(-100, 100),
-                       np.random.uniform(-100, 100), np.random.randint(0, 3),
-                       np.random.randint(0, 3), np.random.randint(1, 4), 1])
+            X.append(
+                [
+                    np.random.uniform(0, 80),
+                    np.random.uniform(-100, 100),
+                    np.random.uniform(-100, 100),
+                    np.random.randint(0, 3),
+                    np.random.randint(0, 3),
+                    np.random.randint(1, 4),
+                    1,
+                ]
+            )
             y.append(STRAT_CHASE)
 
         # Rule: fast-running player → ambush
         for _ in range(80):
-            X.append([np.random.uniform(100, 400), np.random.uniform(-100, 100),
-                       np.random.uniform(200, 400), np.random.randint(0, 2),
-                       np.random.randint(5, 15), np.random.randint(1, 6), 1])
+            X.append(
+                [
+                    np.random.uniform(100, 400),
+                    np.random.uniform(-100, 100),
+                    np.random.uniform(200, 400),
+                    np.random.randint(0, 2),
+                    np.random.randint(5, 15),
+                    np.random.randint(1, 6),
+                    1,
+                ]
+            )
             y.append(STRAT_AMBUSH)
 
         # Rule: far + player not moving much → patrol
         for _ in range(100):
-            X.append([np.random.uniform(300, 800), np.random.uniform(-50, 50),
-                       np.random.uniform(-50, 50), np.random.randint(0, 2),
-                       np.random.randint(0, 2), np.random.randint(1, 8), 1])
+            X.append(
+                [
+                    np.random.uniform(300, 800),
+                    np.random.uniform(-50, 50),
+                    np.random.uniform(-50, 50),
+                    np.random.randint(0, 2),
+                    np.random.randint(0, 2),
+                    np.random.randint(1, 8),
+                    1,
+                ]
+            )
             y.append(STRAT_PATROL)
 
         # Rule: many enemies alive → block upper path
         for _ in range(60):
-            X.append([np.random.uniform(100, 500), np.random.uniform(-300, -100),
-                       np.random.uniform(100, 300), np.random.randint(4, 15),
-                       np.random.randint(0, 5), np.random.randint(4, 8), 1])
+            X.append(
+                [
+                    np.random.uniform(100, 500),
+                    np.random.uniform(-300, -100),
+                    np.random.uniform(100, 300),
+                    np.random.randint(4, 15),
+                    np.random.randint(0, 5),
+                    np.random.randint(4, 8),
+                    1,
+                ]
+            )
             y.append(STRAT_BLOCK_UPPER)
 
         # Rule: player low health → aggressive chase
         for _ in range(60):
-            X.append([np.random.uniform(50, 250), np.random.uniform(-100, 100),
-                       np.random.uniform(-200, 200), np.random.randint(0, 5),
-                       np.random.randint(0, 5), np.random.randint(1, 6), 1])
+            X.append(
+                [
+                    np.random.uniform(50, 250),
+                    np.random.uniform(-100, 100),
+                    np.random.uniform(-200, 200),
+                    np.random.randint(0, 5),
+                    np.random.randint(0, 5),
+                    np.random.randint(1, 6),
+                    1,
+                ]
+            )
             y.append(STRAT_CHASE)
 
         # Rule: enemy outnumbered → retreat
         for _ in range(40):
-            X.append([np.random.uniform(200, 500), np.random.uniform(-100, 100),
-                       np.random.uniform(-300, 300), np.random.randint(0, 5),
-                       np.random.randint(0, 5), 1, 2])
+            X.append(
+                [
+                    np.random.uniform(200, 500),
+                    np.random.uniform(-100, 100),
+                    np.random.uniform(-300, 300),
+                    np.random.randint(0, 5),
+                    np.random.randint(0, 5),
+                    1,
+                    2,
+                ]
+            )
             y.append(STRAT_RETREAT)
 
         X = np.array(X, dtype=np.float32)
@@ -110,14 +170,15 @@ class DecisionTreeAI:
         self.model.fit(X, y)
         self._is_trained = True
 
-    # ── Predict ───────────────────────────────────────────────────────
+    # Predict
     def predict(self, features: np.ndarray) -> int:
         """
         features: 1D numpy array of shape (FEATURE_COUNT,)
         Returns: integer action index
         """
-        assert len(features) == self.FEATURE_COUNT, \
+        assert len(features) == self.FEATURE_COUNT, (
             f"Expected {self.FEATURE_COUNT} features, got {len(features)}"
+        )
         pred = self.model.predict(features.reshape(1, -1))
         return int(pred[0])
 
@@ -133,20 +194,33 @@ class DecisionTreeAI:
             full[cls] = proba[i]
         return full
 
-    # ── Build feature vector from game state ─────────────────────────
+    # Build feature vector from game state
     @staticmethod
-    def build_features(enemy_rect, player_rect, player_vel_x: float,
-                        jump_freq: int, run_freq: int,
-                        enemy_count: int, player_health: int) -> np.ndarray:
+    def build_features(
+        enemy_rect,
+        player_rect,
+        player_vel_x: float,
+        jump_freq: int,
+        run_freq: int,
+        enemy_count: int,
+        player_health: int,
+    ) -> np.ndarray:
         dist_x = abs(player_rect.centerx - enemy_rect.centerx)
         dist_y = player_rect.centery - enemy_rect.centery  # neg = player above
-        return np.array([
-            dist_x, dist_y, player_vel_x,
-            jump_freq, run_freq,
-            enemy_count, player_health
-        ], dtype=np.float32)
+        return np.array(
+            [
+                dist_x,
+                dist_y,
+                player_vel_x,
+                jump_freq,
+                run_freq,
+                enemy_count,
+                player_health,
+            ],
+            dtype=np.float32,
+        )
 
-    # ── Persistence ──────────────────────────────────────────────────
+    # Persistence
     def update_from_examples(self, examples: list[tuple[np.ndarray, int]]):
         if not examples:
             return

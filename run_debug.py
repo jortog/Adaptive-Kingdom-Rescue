@@ -1,6 +1,8 @@
-﻿import traceback
+import traceback
+
 try:
     from src.game import Game
+
     Game().run()
 except SystemExit:
     pass

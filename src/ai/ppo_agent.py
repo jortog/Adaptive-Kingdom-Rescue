@@ -63,7 +63,9 @@ class KingdomRescueEnv(gym.Env):
         self._current_obs = obs.astype(np.float32)
 
     def add_transition(self, next_obs: np.ndarray, reward: float, done: bool):
-        self._transitions.append((next_obs.astype(np.float32), float(reward), bool(done)))
+        self._transitions.append(
+            (next_obs.astype(np.float32), float(reward), bool(done))
+        )
 
 
 class PPOAgent:

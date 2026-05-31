@@ -2,6 +2,7 @@ import pygame
 from config import TILE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT
 from src.systems.renderer import draw_background, draw_ground_tile, draw_platform_tile
 
+
 class LevelBase:
     EMPTY = 0
     GROUND = 1
@@ -15,14 +16,18 @@ class LevelBase:
         self.spawn_x = TILE_SIZE
         self.spawn_y = 0
         self._build_from_tilemap()
-        self.pixel_width  = len(self.TILE_MAP[0]) * TILE_SIZE if self.TILE_MAP else SCREEN_WIDTH
-        self.pixel_height = len(self.TILE_MAP)    * TILE_SIZE if self.TILE_MAP else SCREEN_HEIGHT
+        self.pixel_width = (
+            len(self.TILE_MAP[0]) * TILE_SIZE if self.TILE_MAP else SCREEN_WIDTH
+        )
+        self.pixel_height = (
+            len(self.TILE_MAP) * TILE_SIZE if self.TILE_MAP else SCREEN_HEIGHT
+        )
 
     def _build_from_tilemap(self):
         for row_idx, row in enumerate(self.TILE_MAP):
             for col_idx, tile in enumerate(row):
-                x    = col_idx * TILE_SIZE
-                y    = row_idx * TILE_SIZE
+                x = col_idx * TILE_SIZE
+                y = row_idx * TILE_SIZE
                 rect = pygame.Rect(x, y, TILE_SIZE, TILE_SIZE)
                 if tile in (self.GROUND, self.PLATFORM):
                     self.platforms.append(rect)
@@ -44,7 +49,9 @@ class LevelBase:
                 rect = pygame.Rect(
                     col_idx * TILE_SIZE - camera_offset_x,
                     row_idx * TILE_SIZE - camera_offset_y,
-                    TILE_SIZE, TILE_SIZE)
+                    TILE_SIZE,
+                    TILE_SIZE,
+                )
                 if tile == self.GROUND:
                     draw_ground_tile(surface, rect)
                 elif tile == self.PLATFORM:

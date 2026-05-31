@@ -8,27 +8,27 @@ class GameState:
         self.reset_session()
 
     def reset_session(self):
-        self.lives           = PLAYER_START_LIVES
-        self.score           = 0
-        self.level_index     = 0
-        self.total_attempts  = 0
-        self.challenge_mode  = False
-        self.level_time_elapsed      = 0.0
-        self.checkpoints_reached     = set()
+        self.lives = PLAYER_START_LIVES
+        self.score = 0
+        self.level_index = 0
+        self.total_attempts = 0
+        self.challenge_mode = False
+        self.level_time_elapsed = 0.0
+        self.checkpoints_reached = set()
         self.damage_taken_this_level = 0
         self.player_deaths_this_level = 0
-        self.action_history          = deque(maxlen=AI_ACTION_BUFFER_LEN)
-        self.action_freq_window      = []
-        self.action_freq_timestamps  = []
-        self.ppo_experience_buffer   = []
-        self.enemy_kill_streak       = {}
-        self.powerup_collect_recent  = {}
-        self.route_history           = []
+        self.action_history = deque(maxlen=AI_ACTION_BUFFER_LEN)
+        self.action_freq_window = []
+        self.action_freq_timestamps = []
+        self.ppo_experience_buffer = []
+        self.enemy_kill_streak = {}
+        self.powerup_collect_recent = {}
+        self.route_history = []
 
     def reset_level(self):
-        self.level_time_elapsed       = 0.0
-        self.checkpoints_reached      = set()
-        self.damage_taken_this_level  = 0
+        self.level_time_elapsed = 0.0
+        self.checkpoints_reached = set()
+        self.damage_taken_this_level = 0
         self.player_deaths_this_level = 0
         self.action_freq_window.clear()
         self.action_freq_timestamps.clear()
@@ -46,7 +46,7 @@ class GameState:
             self.action_freq_window.pop(0)
 
     def get_action_history_padded(self) -> list:
-        hist    = list(self.action_history)[-AI_ACTION_HISTORY_LEN:]
+        hist = list(self.action_history)[-AI_ACTION_HISTORY_LEN:]
         pad_len = AI_ACTION_HISTORY_LEN - len(hist)
         return [0] * pad_len + hist
 
