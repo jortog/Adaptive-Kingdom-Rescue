@@ -71,6 +71,15 @@ RNN_INFERENCE_INTERVAL = 0.2
 DT_WEIGHT = 0.5
 RNN_WEIGHT = 0.5
 
+# Adaptive difficulty
+# Per-level starting pressure (0..1). Early levels start easy.
+DIFFICULTY_LEVEL_BASE = [0.12, 0.30, 0.48]
+# Seconds at the start of every level where enemies stay calmer (breathing room).
+DIFFICULTY_WARMUP_TIME = 12.0
+# Each completed level nudges baseline pressure up ("the AI learns"), up to a cap.
+DIFFICULTY_ADAPT_STEP = 0.06
+DIFFICULTY_ADAPT_MAX = 0.36
+
 # Action indices
 ACTION_IDLE = 0
 ACTION_JUMP = 1
@@ -116,3 +125,4 @@ DT_BASELINE_MODEL_PATH = os.path.join(BASELINE_MODELS_DIR, "decision_tree.pkl")
 
 RNN_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "rnn_predictor.pt")
 DT_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "decision_tree.pkl")
+ADAPTATION_PATH = os.path.join(RUNTIME_MODELS_DIR, "adaptation.json")

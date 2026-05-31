@@ -1,27 +1,18 @@
 from src.levels.level_base import LevelBase
 from config import TILE_SIZE
 
-G = LevelBase.GROUND
-P = LevelBase.PLATFORM
-E = LevelBase.EMPTY
-
 
 class Level01(LevelBase):
     """
-    Level 1: now harder. Platforms are real (jumpable), 5 enemies including
-    a flying ambusher and a flophopper that matches your jumps.
+    Level 1: the gentle opener. Platforms are procedurally placed but always
+    jump-reachable; 5 enemies including a flying ambusher and a flophopper that
+    matches your jumps, though early on only one presses at a time.
     """
-    TILE_MAP = [
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,P,P,P,E,E,E,E,E,P,P,P,P,E,E,E,E,E,E,P,P,P,E,E,E,E,E,P,P,P,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,P,P,P,E,E,E,E,E,E,P,P,P,E,E,E,E,E,E,P,P,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G],
-    ]
+    PROCEDURAL = True
+    ROWS = 9
+    COLS = 36
+    N_LOWER = 4
+    N_UPPER = 1
 
     def get_princess_position(self):
         cols = len(self.TILE_MAP[0])

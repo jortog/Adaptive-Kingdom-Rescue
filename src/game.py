@@ -47,7 +47,7 @@ class Game:
         pygame.mixer.init()
         self.audio = AudioManager()
         self.audio.play_bgm(MENU_BGM, loop=True, start_pos=12)
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
         self.gs = GameState()
@@ -64,6 +64,7 @@ class Game:
         self._max_level_progress = 0.0
         self._aerial_spawn_cd = 0.0
         self.AERIAL_SPAWN_CD = 2.5
+        self._enemy_cap = 99
         self.selected_level = 0
         self.settings = {"sound": True, "music": True, "ai_difficulty": "normal"}
         self._menu_cursor = 0
@@ -78,7 +79,8 @@ class Game:
 
     def load_level(self, idx):
         idx = min(max(idx, 0), NUM_LEVELS - 1)
-        self.level = LEVELS[idx]()
+        # Fresh seed each load → platform layout varies every attempt.
+        self.level = LEVELS[idx](seed=random.randrange(1 << 30))
         self.gs.reset_level()
         self.time_remaining = LEVEL_TIME_LIMIT
         self._max_level_progress = 0.0
@@ -104,14 +106,19 @@ class Game:
                     patrol_right=sp.get("patrol_right"),
                 )
             )
+        # Cap on total live enemies so aerial spawns can't snowball into a swarm.
+        self._enemy_cap = len(self.enemies) + 2
         px, py = self.level.get_princess_position()
         self.princess = Princess(px, py)
         rows = len(self.level.TILE_MAP)
-        gy = (rows - 2) * TILE_SIZE
+        # Rest power-ups ON the ground so they never embed in a floating platform
+        # (platforms live 2+ rows up). PowerUp is TILE_SIZE-4 tall.
+        ground_top = (rows - 1) * TILE_SIZE
+        pu_y = ground_top - (TILE_SIZE - 4)
         self.powerups = [
-            PowerUp(6 * TILE_SIZE, gy - TILE_SIZE, "mushroom"),
-            PowerUp(14 * TILE_SIZE, gy - TILE_SIZE, "mushroom"),
-            PowerUp(20 * TILE_SIZE, gy - TILE_SIZE, "star"),
+            PowerUp(6 * TILE_SIZE, pu_y, "mushroom"),
+            PowerUp(14 * TILE_SIZE, pu_y, "mushroom"),
+            PowerUp(20 * TILE_SIZE, pu_y, "star"),
         ]
 
     def update_game(self, dt):
@@ -122,12 +129,19 @@ class Game:
         jf = self.gs.count_recent_action(ACTION_JUMP)
         rf = self.gs.count_recent_action(ACTION_RUN)
         ah = self.gs.get_action_history_padded()
-        self.ai_ensemble.pre_frame(dt, ah)
+        difficulty = self.ai_ensemble.compute_difficulty(
+            self.gs.level_index, self.gs.level_time_elapsed
+        )
+        self.ai_ensemble.pre_frame(dt, ah, difficulty)
         player_jumped = self.player.vel_y < -300 and not self.player.on_ground
         spawn_requested = False
-        for e in self.enemies:
-            if not e.alive:
-                continue
+        # Closest enemies claim the limited aggression budget first, so the
+        # player is pressured from nearby — never swarmed from every side at once.
+        ordered = sorted(
+            (e for e in self.enemies if e.alive),
+            key=lambda e: abs(e.rect.centerx - self.player.rect.centerx),
+        )
+        for e in ordered:
             cmd = self.ai_ensemble.get_command(
                 e.rect,
                 self.player.rect,
@@ -144,7 +158,14 @@ class Game:
                 e.mirror_jump(self.player.vel_y)
             e.update(dt, self.player.rect, self.level.platforms)
         self._aerial_spawn_cd -= dt
-        if spawn_requested and self._aerial_spawn_cd <= 0 and jf >= 2:
+        alive_count = sum(1 for e in self.enemies if e.alive)
+        if (
+            spawn_requested
+            and self._aerial_spawn_cd <= 0
+            and jf >= 2
+            and difficulty >= 0.45
+            and alive_count < self._enemy_cap
+        ):
             x = self.player.rect.centerx + random.randint(-TILE_SIZE, TILE_SIZE)
             y = self.player.rect.top - 3 * TILE_SIZE
             fly = Enemy(x, y, enemy_type="flying")

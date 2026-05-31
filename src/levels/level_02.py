@@ -1,23 +1,13 @@
 from src.levels.level_base import LevelBase
 from config import TILE_SIZE
 
-G = LevelBase.GROUND
-P = LevelBase.PLATFORM
-E = LevelBase.EMPTY
-
 
 class Level02(LevelBase):
-    TILE_MAP = [
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,P,P,E,E,E,E,E,E,P,P,P,E,E,E,E,E,E,E,P,P,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,P,P,P,E,E,E,E,E,E,P,P,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E,E],
-        [G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G,G],
-    ]
+    PROCEDURAL = True
+    ROWS = 9
+    COLS = 30
+    N_LOWER = 4
+    N_UPPER = 2
 
     def get_princess_position(self):
         cols = len(self.TILE_MAP[0])
