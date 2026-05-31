@@ -27,6 +27,8 @@ class AIEnsemble:
         self._ppo_strat     = np.zeros(STRAT_COUNT, dtype=np.float32)
         self._rnn_strat     = np.zeros(STRAT_COUNT, dtype=np.float32)
         self.rnn_confidence = 0.0
+        self.last_fused_probs = np.zeros(STRAT_COUNT, dtype=np.float32)
+        self._dt_examples = []
 
     def pre_frame(self, dt, action_history, ppo_state):
         """Call ONCE per frame. Shared values for all enemies."""
@@ -43,11 +45,20 @@ class AIEnsemble:
             enemy_rect, player_rect, player_vel_x,
             jump_freq, run_freq, enemy_count, player_health)
         dt_probs = self.dt_ai.predict_proba(feats)
-        fused    = (DT_WEIGHT * dt_probs +
-                    RNN_WEIGHT * self._rnn_strat +
-                    PPO_WEIGHT * self._ppo_strat)
+        dt_conf = float(np.max(dt_probs))
+        dt_weight = DT_WEIGHT * max(dt_conf, 0.1)
+        rnn_weight = RNN_WEIGHT * max(self.rnn_confidence, 0.1)
+        ppo_weight = PPO_WEIGHT
+        fused    = (dt_weight * dt_probs +
+                    rnn_weight * self._rnn_strat +
+                    ppo_weight * self._ppo_strat)
         fused   /= fused.sum() + 1e-8
-        return int(np.argmax(fused))
+        command = int(np.argmax(fused))
+        self.last_fused_probs = fused
+        self._dt_examples.append((feats, command))
+        if len(self._dt_examples) > 2000:
+            self._dt_examples = self._dt_examples[-2000:]
+        return command
 
     def _rnn_to_strat(self, rnn_probs):
         strat = np.zeros(STRAT_COUNT, dtype=np.float32)
@@ -66,6 +77,8 @@ class AIEnsemble:
     def learn_after_level(self, action_history):
         seqs = RNNPredictor.build_sequences(action_history, self.rnn.seq_len)
         self.rnn.fine_tune(seqs)
+        self.dt_ai.update_from_examples(self._dt_examples)
+        self._dt_examples.clear()
 
     def save_all(self):
         self.dt_ai.save()

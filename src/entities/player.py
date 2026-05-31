@@ -87,7 +87,11 @@ class Player(pygame.sprite.Sprite):
 
     def _handle_jump_hold(self, keys, dt):
         if self.jump_held:
-            if (keys[pygame.K_z] or keys[pygame.K_SPACE]) and self.jump_held_timer<self.JUMP_HOLD_MAX and self.vel_y<0:
+            if (
+                (keys[pygame.K_z] or keys[pygame.K_SPACE])
+                and self.jump_held_timer<self.JUMP_HOLD_MAX
+                and self.vel_y<0
+            ):
                 self.vel_y+=PLAYER_HOLD_JUMP_BONUS*dt/self.JUMP_HOLD_MAX
                 self.jump_held_timer+=dt
             else: self.jump_held=False

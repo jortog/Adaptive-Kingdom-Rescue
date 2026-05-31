@@ -1,4 +1,3 @@
-# src/systems/camera.py
 import pygame
 from config import SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE
 

@@ -6,7 +6,7 @@ from config import (
     ENEMY_PATROL_SPEED, ENEMY_CHASE_SPEED,
     GRAVITY, TILE_SIZE,
     STRAT_PATROL, STRAT_CHASE, STRAT_AMBUSH, STRAT_RETREAT,
-    STRAT_BLOCK_UPPER, STRAT_BLOCK_LOWER
+    STRAT_BLOCK_UPPER, STRAT_BLOCK_LOWER, STRAT_SPAWN_AERIAL
 )
 
 _FONT=None; _LBL_CACHE={}
@@ -20,7 +20,8 @@ def _badge_label(state):
     return _LBL_CACHE[state]
 
 BADGE_COL={"patrol":(100,100,100),"chase":(210,40,40),
-           "ambush":(190,95,0),"retreat":(40,90,200),"block":(90,40,190)}
+           "ambush":(190,95,0),"retreat":(40,90,200),
+           "block_upper":(90,40,190),"block_lower":(90,40,190)}
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -51,7 +52,8 @@ class Enemy(pygame.sprite.Sprite):
     def set_command(self, command):
         self.current_command=command
         state_map={STRAT_PATROL:"patrol",STRAT_CHASE:"chase",STRAT_AMBUSH:"ambush",
-                   STRAT_RETREAT:"retreat",STRAT_BLOCK_UPPER:"block",STRAT_BLOCK_LOWER:"block"}
+                   STRAT_RETREAT:"retreat",STRAT_BLOCK_UPPER:"block_upper",
+                   STRAT_BLOCK_LOWER:"block_lower",STRAT_SPAWN_AERIAL:"ambush"}
         self.state=state_map.get(command,"patrol")
 
     def mirror_jump(self, player_vel_y):
@@ -90,8 +92,17 @@ class Enemy(pygame.sprite.Sprite):
             d=-1 if player_rect.centerx>self.rect.centerx else 1
             self.vel_x=ENEMY_PATROL_SPEED*d
             self.rect.x+=int(self.vel_x*dt)
-        elif self.state=="block":
-            self.vel_x=0
+        elif self.state in ("block_upper", "block_lower"):
+            d=1 if player_rect.centerx>self.rect.centerx else -1
+            self.vel_x=ENEMY_PATROL_SPEED*0.6*d
+            self.rect.x+=int(self.vel_x*dt)
+            if self.enemy_type=="flying":
+                target_y = (
+                    player_rect.top - 2*TILE_SIZE
+                    if self.state=="block_upper"
+                    else player_rect.bottom
+                )
+                self.rect.y+=int((target_y-self.rect.y)*3.0*dt)
 
         # ── Gravity / collisions ─────────────────────────────────────
         if self.affected_by_gravity:

@@ -1,5 +1,4 @@
-# src/systems/game_state.py
-from config import PLAYER_START_LIVES, AI_ACTION_HISTORY_LEN
+from config import PLAYER_START_LIVES, AI_ACTION_HISTORY_LEN, AI_ACTION_BUFFER_LEN
 from collections import deque
 import time
 
@@ -18,7 +17,7 @@ class GameState:
         self.checkpoints_reached     = set()
         self.damage_taken_this_level = 0
         self.player_deaths_this_level = 0
-        self.action_history          = deque(maxlen=AI_ACTION_HISTORY_LEN)
+        self.action_history          = deque(maxlen=AI_ACTION_BUFFER_LEN)
         self.action_freq_window      = []
         self.action_freq_timestamps  = []
         self.ppo_experience_buffer   = []
@@ -47,7 +46,7 @@ class GameState:
             self.action_freq_window.pop(0)
 
     def get_action_history_padded(self) -> list:
-        hist    = list(self.action_history)
+        hist    = list(self.action_history)[-AI_ACTION_HISTORY_LEN:]
         pad_len = AI_ACTION_HISTORY_LEN - len(hist)
         return [0] * pad_len + hist
 
@@ -59,6 +58,8 @@ class GameState:
 
     def add_ppo_experience(self, state, action, reward, next_state, done):
         self.ppo_experience_buffer.append((state, action, reward, next_state, done))
+        if len(self.ppo_experience_buffer) > 5000:
+            self.ppo_experience_buffer = self.ppo_experience_buffer[-5000:]
 
     def flush_ppo_buffer(self):
         buf = list(self.ppo_experience_buffer)

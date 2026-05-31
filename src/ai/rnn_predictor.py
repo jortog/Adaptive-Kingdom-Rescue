@@ -1,4 +1,3 @@
-# src/ai/rnn_predictor.py
 """
 RNN (LSTM) Predictor
 ────────────────────
@@ -33,7 +32,6 @@ class LSTMModel(nn.Module):
         self.fc1         = nn.Linear(hidden_size, 32)
         self.relu        = nn.ReLU()
         self.fc2         = nn.Linear(32, output_size)
-        self.softmax     = nn.Softmax(dim=-1)
 
     def forward(self, x: torch.Tensor):
         # x: (batch, seq_len) — integer action indices
@@ -42,7 +40,7 @@ class LSTMModel(nn.Module):
         last_out = lstm_out[:, -1, :]            # take last time step
         out = self.relu(self.fc1(last_out))      # (batch, 32)
         logits = self.fc2(out)                   # (batch, ACTION_COUNT)
-        return self.softmax(logits)              # (batch, ACTION_COUNT)
+        return logits                            # (batch, ACTION_COUNT)
 
 
 class RNNPredictor:
@@ -81,7 +79,8 @@ class RNNPredictor:
         tensor = torch.tensor([action_history], dtype=torch.long, device=self.device)
         self.model.eval()
         with torch.no_grad():
-            probs = self.model(tensor)  # (1, ACTION_COUNT)
+            logits = self.model(tensor)  # (1, ACTION_COUNT)
+            probs = torch.softmax(logits, dim=-1)
         return probs[0].cpu().numpy()
 
     # ── Timer-gated update ────────────────────────────────────────────

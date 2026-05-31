@@ -1,4 +1,3 @@
-# src/levels/level_03.py
 from src.levels.level_base import LevelBase
 from config import TILE_SIZE
 

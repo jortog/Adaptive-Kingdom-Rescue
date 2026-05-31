@@ -1,4 +1,3 @@
-# src/systems/scoring.py
 """
 Scoring system with AI-driven dynamic adjustments.
 All modifiers are explained in config.py comments and the proposal Section 2.2.B.

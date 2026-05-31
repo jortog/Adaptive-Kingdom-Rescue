@@ -1,4 +1,3 @@
-# src/ai/decision_tree.py
 """
 Decision Tree AI Layer
 ─────────────────────
@@ -42,7 +41,10 @@ class DecisionTreeAI:
     def __init__(self):
         self.model = DecisionTreeClassifier(max_depth=6, random_state=42)
         self._is_trained = False
+        self._base_X = None
+        self._base_y = None
         self._bootstrap()
+        self.load()
 
     # ── Bootstrap with synthetic rule-encoding data ───────────────────
     def _bootstrap(self):
@@ -103,6 +105,8 @@ class DecisionTreeAI:
 
         X = np.array(X, dtype=np.float32)
         y = np.array(y, dtype=np.int32)
+        self._base_X = X
+        self._base_y = y
         self.model.fit(X, y)
         self._is_trained = True
 
@@ -143,6 +147,19 @@ class DecisionTreeAI:
         ], dtype=np.float32)
 
     # ── Persistence ──────────────────────────────────────────────────
+    def update_from_examples(self, examples: list[tuple[np.ndarray, int]]):
+        if not examples:
+            return
+        X_new = np.array([features for features, _ in examples], dtype=np.float32)
+        y_new = np.array([label for _, label in examples], dtype=np.int32)
+        if self._base_X is not None and self._base_y is not None:
+            X = np.vstack([self._base_X, X_new])
+            y = np.concatenate([self._base_y, y_new])
+        else:
+            X, y = X_new, y_new
+        self.model.fit(X, y)
+        self._is_trained = True
+
     def save(self):
         os.makedirs(os.path.dirname(DT_MODEL_PATH), exist_ok=True)
         with open(DT_MODEL_PATH, "wb") as f:

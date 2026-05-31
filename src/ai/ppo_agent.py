@@ -1,40 +1,36 @@
-# src/ai/ppo_agent.py
 """
-PPO Reinforcement Learning Agent
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-Uses Stable-Baselines3's PPO implementation.
-The "environment" is a lightweight Gymnasium-compatible wrapper
-that the game feeds state/reward into after each PPO update interval.
+PPO reinforcement learning agent.
 
-State space (8 floats, normalized [0,1]):
-  [0] level_timer_norm        â€” time elapsed / time limit
-  [1] player_lives_norm       â€” lives / max_lives
-  [2] enemy_count_norm        â€” enemies alive / max_enemies
-  [3] dist_to_princess_norm   â€” player dist to princess / level_width
-  [4] jump_freq_norm          â€” jumps in last 30s / 30
-  [5] run_freq_norm           â€” runs in last 30s / 30
-  [6] player_speed_norm       â€” |player vel_x| / max_speed
-  [7] player_health_norm      â€” player size_level / 2
+The game feeds normalized state transitions into a small Gymnasium-compatible
+environment wrapper. Stable-Baselines3 PPO consumes those transitions during
+periodic updates and returns one of the strategic enemy commands.
 
-Action space: Discrete(STRAT_COUNT) = 7 strategic commands
+State space (8 floats, normalized [0, 1]):
+  [0] level_timer_norm        - time elapsed / time limit
+  [1] player_lives_norm       - lives / max_lives
+  [2] enemy_count_norm        - enemies alive / max_enemies
+  [3] dist_to_princess_norm   - player distance to princess / level_width
+  [4] jump_freq_norm          - jumps in recent window / 30
+  [5] run_freq_norm           - runs in recent window / 30
+  [6] player_speed_norm       - abs(player vel_x) / max_speed
+  [7] player_health_norm      - player size_level mapped to [0, 1]
 """
 
-import numpy as np
 import os
+
 import gymnasium as gym
+import numpy as np
 from gymnasium import spaces
 from stable_baselines3 import PPO as SB3PPO
-from config import STRAT_COUNT, PPO_MODEL_PATH, PLAYER_MAX_LIVES, PLAYER_DASH_SPEED
+
+from config import PLAYER_DASH_SPEED, PLAYER_MAX_LIVES, PPO_MODEL_PATH, STRAT_COUNT
 
 
 STATE_DIM = 8
 
 
 class KingdomRescueEnv(gym.Env):
-    """
-    Minimal Gymnasium environment shell.
-    The actual game fills in state and reward from outside.
-    """
+    """Minimal environment shell backed by game-provided transitions."""
 
     metadata = {"render_modes": []}
 
@@ -45,51 +41,43 @@ class KingdomRescueEnv(gym.Env):
         )
         self.action_space = spaces.Discrete(STRAT_COUNT)
 
-        self._current_obs    = np.zeros(STATE_DIM, dtype=np.float32)
-        self._pending_reward = 0.0
-        self._done           = False
+        self._current_obs = np.zeros(STATE_DIM, dtype=np.float32)
+        self._transitions = []
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        self._current_obs    = np.zeros(STATE_DIM, dtype=np.float32)
-        self._pending_reward = 0.0
-        self._done           = False
+        self._current_obs = np.zeros(STATE_DIM, dtype=np.float32)
         return self._current_obs, {}
 
     def step(self, action):
-        obs     = self._current_obs
-        reward  = self._pending_reward
-        done    = self._done
-        self._pending_reward = 0.0
+        if self._transitions:
+            obs, reward, done = self._transitions.pop(0)
+            self._current_obs = obs
+        else:
+            obs = self._current_obs
+            reward = 0.0
+            done = False
         return obs, reward, done, False, {}
 
     def set_state(self, obs: np.ndarray):
         self._current_obs = obs.astype(np.float32)
 
-    def give_reward(self, reward: float):
-        self._pending_reward += reward
-
-    def set_done(self, done: bool):
-        self._done = done
-
-    def render(self):
-        pass
+    def add_transition(self, next_obs: np.ndarray, reward: float, done: bool):
+        self._transitions.append((next_obs.astype(np.float32), float(reward), bool(done)))
 
 
 class PPOAgent:
-    """
-    Wraps SB3 PPO. Provides:
-      - get_action(state) â†’ int
-      - give_reward(r)
-      - update()         â†’ trains on accumulated steps
-      - save/load
-    """
+    """Small wrapper around Stable-Baselines3 PPO."""
 
-    def __init__(self, level_width: int = 5000, level_time: float = 90.0,
-                 max_enemies: int = 10):
-        self.level_width  = level_width
-        self.level_time   = level_time
-        self.max_enemies  = max_enemies
+    def __init__(
+        self,
+        level_width: int = 5000,
+        level_time: float = 90.0,
+        max_enemies: int = 10,
+    ):
+        self.level_width = level_width
+        self.level_time = level_time
+        self.max_enemies = max_enemies
 
         self.env = KingdomRescueEnv()
 
@@ -105,72 +93,78 @@ class PPOAgent:
                 batch_size=64,
                 clip_range=0.2,
                 gamma=0.99,
-                ent_coef=0.01,      # encourage exploration
-                policy_kwargs=dict(net_arch=[128, 128])
+                ent_coef=0.01,
+                policy_kwargs=dict(net_arch=[128, 128]),
             )
 
-        # Buffer for collecting experience between updates
         self._step_buffer: list[tuple] = []
-        self._last_obs     = np.zeros(STATE_DIM, dtype=np.float32)
-        self._last_action  = 0
+        self._last_obs = np.zeros(STATE_DIM, dtype=np.float32)
+        self._last_action = 0
+        self._has_action = False
         self._update_timer = 0.0
 
-    # â”€â”€ Build normalized state vector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    def build_state(self, level_timer: float, player_lives: int,
-                    enemy_count: int, dist_to_princess: float,
-                    jump_freq: int, run_freq: int,
-                    player_vel_x: float, player_health: int) -> np.ndarray:
-        return np.array([
-            min(level_timer / max(self.level_time, 1), 1.0),
-            player_lives / PLAYER_MAX_LIVES,
-            min(enemy_count / max(self.max_enemies, 1), 1.0),
-            min(dist_to_princess / max(self.level_width, 1), 1.0),
-            min(jump_freq / 30.0, 1.0),
-            min(run_freq / 30.0, 1.0),
-            min(abs(player_vel_x) / PLAYER_DASH_SPEED, 1.0),
-            (player_health - 1) / 1.0,
-        ], dtype=np.float32)
+    def build_state(
+        self,
+        level_timer: float,
+        player_lives: int,
+        enemy_count: int,
+        dist_to_princess: float,
+        jump_freq: int,
+        run_freq: int,
+        player_vel_x: float,
+        player_health: int,
+    ) -> np.ndarray:
+        return np.array(
+            [
+                min(level_timer / max(self.level_time, 1), 1.0),
+                player_lives / PLAYER_MAX_LIVES,
+                min(enemy_count / max(self.max_enemies, 1), 1.0),
+                min(dist_to_princess / max(self.level_width, 1), 1.0),
+                min(jump_freq / 30.0, 1.0),
+                min(run_freq / 30.0, 1.0),
+                min(abs(player_vel_x) / PLAYER_DASH_SPEED, 1.0),
+                player_health - 1,
+            ],
+            dtype=np.float32,
+        )
 
-    # â”€â”€ Get action (inference) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def get_action(self, state: np.ndarray) -> int:
         self.env.set_state(state)
         action, _ = self.model.predict(state, deterministic=False)
-        self._last_obs    = state
+        self._last_obs = state
         self._last_action = int(action)
+        self._has_action = True
         return self._last_action
 
-    # â”€â”€ Reward signals (called from game systems) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    def reward_prevention(self):
-        """+1 for each second player hasn't reached princess."""
-        self.env.give_reward(1.0)
+    def observe(
+        self,
+        state: np.ndarray,
+        action: int,
+        reward: float,
+        next_state: np.ndarray,
+        done: bool,
+    ):
+        self._step_buffer.append((state, action, reward, next_state, done))
+        self.env.set_state(state)
+        self.env.add_transition(next_state, reward, done)
 
-    def penalty_fast_death(self):
-        """-0.5 if player dies within 5 seconds of level start."""
-        self.env.give_reward(-0.5)
-
-    def reward_variety(self):
-        """+0.2 for each unique enemy formation used in last 10s."""
-        self.env.give_reward(0.2)
-
-    # â”€â”€ Periodic update (call every PPO_UPDATE_INTERVAL seconds) â”€â”€â”€â”€â”€
     def tick(self, dt: float, state: np.ndarray) -> int:
-        """
-        Returns a strategic action every PPO_UPDATE_INTERVAL seconds.
-        Between intervals, returns the last decided action.
-        """
+        self.env.set_state(state)
+        if not self._has_action:
+            return self.get_action(state)
+
         self._update_timer += dt
         if self._update_timer >= 10.0:
             self._update_timer = 0.0
-            # Trigger one learning step using SB3's collect_rollouts internals
-            # We approximate by calling learn(total_timesteps=1)
-            try:
-                self.model.learn(total_timesteps=64, reset_num_timesteps=False)
-            except Exception:
-                pass
+            if self._step_buffer:
+                try:
+                    self.model.learn(total_timesteps=64, reset_num_timesteps=False)
+                    self._step_buffer.clear()
+                except Exception:
+                    pass
             return self.get_action(state)
         return self._last_action
 
-    # â”€â”€ Persistence â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def save(self):
         os.makedirs(os.path.dirname(PPO_MODEL_PATH), exist_ok=True)
         self.model.save(PPO_MODEL_PATH)

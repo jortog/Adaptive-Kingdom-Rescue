@@ -1,4 +1,3 @@
-# config.py
 import os
 
 # ─── DISPLAY ──────────────────────────────────────────────────────────────────
@@ -67,6 +66,7 @@ SCORE_EXTRA_LIFE_THRESHOLD = 5000
 
 # ─── AI SYSTEM ────────────────────────────────────────────────────────────────
 AI_ACTION_HISTORY_LEN = 30
+AI_ACTION_BUFFER_LEN  = 300
 RNN_INFERENCE_INTERVAL = 0.2
 PPO_UPDATE_INTERVAL    = 10.0
 DT_WEIGHT  = 0.3
