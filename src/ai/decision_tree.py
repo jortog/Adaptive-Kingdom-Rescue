@@ -1,4 +1,5 @@
-"""Decision-tree AI layer for readable enemy behavior rules.
+"""
+Decision-tree AI layer for readable enemy behavior rules.
 
 The tree starts from synthetic examples that encode the designer rules, then
 re-fits after each level with real player-behavior examples collected by the
@@ -39,11 +40,16 @@ class DecisionTreeAI:
     """
 
     FEATURE_COUNT = 7
+    MAX_TRAINING_SAMPLES = 5000
+    BASE_SAMPLES_KEEP = 1000
 
     def __init__(self):
         self.model = DecisionTreeClassifier(max_depth=6, random_state=42)
+        self._is_trained = False
         self._base_X = None
         self._base_y = None
+        self._prediction_history = []
+        self._outcome_history = []
         self._bootstrap()
         self.load()
 
@@ -163,9 +169,22 @@ class DecisionTreeAI:
         self._base_X = X
         self._base_y = y
         self.model.fit(X, y)
+        self._is_trained = True
+
+    def predict(self, features: np.ndarray) -> int:
+        """Return the single best strategy for the given features."""
+        assert len(features) == self.FEATURE_COUNT, (
+            f"Expected {self.FEATURE_COUNT} features, got {len(features)}"
+        )
+        pred = self.model.predict(features.reshape(1, -1))
+        return int(pred[0])
 
     def predict_proba(self, features: np.ndarray) -> np.ndarray:
         """Return a probability distribution over all enemy strategies."""
+        # Ensure model is loaded and valid
+        if self.model is None:
+            self.load()
+
         proba = self.model.predict_proba(features.reshape(1, -1))[0]
         # Keep output shape stable even if training omitted a class
         full = np.zeros(STRAT_COUNT, dtype=np.float32)
@@ -198,28 +217,96 @@ class DecisionTreeAI:
             dtype=np.float32,
         )
 
-    def update_from_examples(self, examples: list[tuple[np.ndarray, int]]):
+    def update_from_examples(self, examples: list[tuple[np.ndarray, int]], performance_weights=None):
         """Re-fit with baseline rules plus new player-specific examples."""
         if not examples:
             return
-        X_new = np.array([features for features, _ in examples], dtype=np.float32)
+
+        X_new = np.array(
+            [features for features, _ in examples], dtype=np.float32)
         y_new = np.array([label for _, label in examples], dtype=np.int32)
+
+        # Apply performance weights if provided
+        if performance_weights is not None:
+            weights = np.array(performance_weights, dtype=np.float32)
+            indices = np.random.choice(len(X_new), size=min(
+                len(X_new), 2000), p=weights/weights.sum())
+            X_new = X_new[indices]
+            y_new = y_new[indices]
+
+        # Keep only recent base samples + new examples
         if self._base_X is not None and self._base_y is not None:
-            X = np.vstack([self._base_X, X_new])
-            y = np.concatenate([self._base_y, y_new])
+            keep_indices = np.random.choice(len(self._base_X),
+                                            size=min(
+                                                self.BASE_SAMPLES_KEEP, len(self._base_X)),
+                                            replace=False)
+            X_base_trimmed = self._base_X[keep_indices]
+            y_base_trimmed = self._base_y[keep_indices]
+            combined_X = np.vstack([X_base_trimmed, X_new])
+            combined_y = np.concatenate([y_base_trimmed, y_new])
         else:
-            X, y = X_new, y_new
-        self.model.fit(X, y)
+            combined_X = X_new
+            combined_y = y_new
+
+        # Limit total samples
+        if len(combined_X) > self.MAX_TRAINING_SAMPLES:
+            indices = np.random.choice(
+                len(combined_X), self.MAX_TRAINING_SAMPLES, replace=False)
+            combined_X = combined_X[indices]
+            combined_y = combined_y[indices]
+
+        # Retrain model
+        self.model.fit(combined_X, combined_y)
+        self._is_trained = True
+        self._base_X = combined_X
+        self._base_y = combined_y
+
+    def record_outcome(self, features, predicted_action, was_successful):
+        """Record whether a prediction led to a successful outcome"""
+        self._prediction_history.append(predicted_action)
+        self._outcome_history.append(1 if was_successful else 0)
+
+        if len(self._prediction_history) > 1000:
+            self._prediction_history = self._prediction_history[-1000:]
+            self._outcome_history = self._outcome_history[-1000:]
+
+    def get_accuracy(self):
+        """Return recent prediction accuracy"""
+        if len(self._outcome_history) < 10:
+            return 0.5
+        return sum(self._outcome_history[-100:]) / min(100, len(self._outcome_history))
 
     def save(self):
+        """Save the model and base data"""
         os.makedirs(os.path.dirname(DT_MODEL_PATH), exist_ok=True)
         with open(DT_MODEL_PATH, "wb") as f:
-            pickle.dump(self.model, f)
+            pickle.dump((self.model, self._base_X, self._base_y), f)
 
     def load(self):
+        """Load the model and base data from disk"""
         load_path = DT_MODEL_PATH
         if not os.path.exists(load_path):
             load_path = DT_BASELINE_MODEL_PATH
+
         if os.path.exists(load_path):
-            with open(load_path, "rb") as f:
-                self.model = pickle.load(f)
+            try:
+                with open(load_path, "rb") as f:
+                    data = pickle.load(f)
+                    if isinstance(data, tuple):
+                        # Data is (model, base_X, base_y)
+                        self.model, self._base_X, self._base_y = data
+                    else:
+                        # Old format - just the model
+                        self.model = data
+                        self._base_X = None
+                        self._base_y = None
+                    self._is_trained = True
+                    print(f"Decision Tree loaded from {load_path}")
+            except Exception as e:
+                print(f"Warning: Could not load Decision Tree model: {e}")
+                # If loading fails, ensure model is initialized
+                if self.model is None:
+                    self.model = DecisionTreeClassifier(
+                        max_depth=6, random_state=42)
+        else:
+            print("No saved Decision Tree model found, using bootstrapped model")

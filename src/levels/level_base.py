@@ -12,14 +12,14 @@ class LevelBase:
     SPIKE = 3
     TILE_MAP = []
 
-    # Procedural layouts use a seed, so attempts vary but stay reachable
+    # Procedural layout. When PROCEDURAL is True the tile map is generated per
+    # instance from a seed instead of using the hardcoded TILE_MAP, so every
+    # attempt looks different while staying jump-reachable.
     PROCEDURAL = False
     ROWS = 9
     COLS = 30
-    N_LOWER = 4  # one-hop platforms above ground
-    N_UPPER = 1  # one-hop platforms above lower platforms
-    # Clear space before the princess prevents guard skips
-    PRINCESS_CLEAR_COLS = 5
+    N_LOWER = 4  # platforms one hop above the ground
+    N_UPPER = 1  # platforms one hop above a lower platform
 
     def __init__(self, seed=None):
         self.rng = random.Random(seed)
@@ -31,7 +31,8 @@ class LevelBase:
         self.spawn_y = 0
         self._build_from_tilemap()
         self.pixel_width = (
-            len(self.TILE_MAP[0]) * TILE_SIZE if self.TILE_MAP else SCREEN_WIDTH
+            len(self.TILE_MAP[0]) *
+            TILE_SIZE if self.TILE_MAP else SCREEN_WIDTH
         )
         self.pixel_height = (
             len(self.TILE_MAP) * TILE_SIZE if self.TILE_MAP else SCREEN_HEIGHT
@@ -56,7 +57,10 @@ class LevelBase:
                     break
 
     def _generate_tilemap(self, rng):
-        """Build a fresh, jump-reachable ground/platform layout."""
+        """Build a fresh tile map: a solid ground row plus platforms placed only
+        at jump-reachable heights and spread out across the level. Lower
+        platforms sit 2 tiles above the ground; upper platforms sit 2 tiles
+        above a nearby lower platform so you can always hop up step by step."""
         rows, cols = self.ROWS, self.COLS
         grid = [[self.EMPTY] * cols for _ in range(rows)]
         ground_row = rows - 1
@@ -64,16 +68,18 @@ class LevelBase:
             grid[ground_row][c] = self.GROUND
         lower_row = ground_row - 2
         upper_row = ground_row - 4
-        # Keep spawn and princess approach clear
-        c_min, c_max = 3, cols - 2 - self.PRINCESS_CLEAR_COLS
-        lower = self._scatter_row(grid, rng, lower_row, self.N_LOWER, c_min, c_max)
+        # Leave the player spawn (left) and princess (right) columns clear.
+        c_min, c_max = 3, cols - 4
+        lower = self._scatter_row(
+            grid, rng, lower_row, self.N_LOWER, c_min, c_max)
         self._place_supported_row(
             grid, rng, upper_row, self.N_UPPER, c_min, c_max, lower
         )
         return grid
 
     def _scatter_row(self, grid, rng, row, count, c_min, c_max):
-        """Place spread-out platforms across one row."""
+        """Place `count` platforms, one per evenly-sized slot across the row, so
+        they stay spread out instead of clumping. Returns [(c0, c1), ...]."""
         placed = []
         span = c_max - c_min + 1
         if count <= 0 or span < 2:
@@ -85,7 +91,7 @@ class LevelBase:
             width = rng.randint(2, max_w)
             c0 = int(round(center - width / 2)) + rng.randint(-1, 1)
             c0 = max(c_min, min(c0, c_max - width + 1))
-            # Keep a 2-tile gap
+            # Keep at least a 2-tile gap from the previous platform.
             if placed and c0 <= placed[-1][1] + 2:
                 c0 = placed[-1][1] + 3
             c1 = c0 + width - 1
@@ -97,7 +103,8 @@ class LevelBase:
         return placed
 
     def _place_supported_row(self, grid, rng, row, count, c_min, c_max, supports):
-        """Place upper platforms over lower supports."""
+        """Place upper platforms, each hovering just above one of `supports` (a
+        lower platform) so it's always reachable with a single step-up hop."""
         placed = []
         if count <= 0 or not supports:
             return placed
@@ -107,7 +114,7 @@ class LevelBase:
             c0 = center - width // 2 + rng.randint(-1, 1)
             c0 = max(c_min, min(c0, c_max - width + 1))
             c1 = c0 + width - 1
-            # Avoid touching upper platforms
+            # Don't overlap or touch another upper platform.
             if any(not (c1 < p0 - 1 or c0 > p1 + 1) for (p0, p1) in placed):
                 continue
             for c in range(c0, c1 + 1):
@@ -131,12 +138,14 @@ class LevelBase:
         return clusters
 
     def get_powerup_spawns(self, kinds):
-        """Return reachable power-up positions for this attempt."""
+        """Random but always-reachable power-up positions, re-rolled per attempt
+        like the platforms. Each rests on the ground or on top of a (reachable)
+        platform. Returns [(x, y, kind), ...]."""
         rows = len(self.TILE_MAP)
         cols = len(self.TILE_MAP[0]) if rows else 0
         ground_row = rows - 1
         pu_size = TILE_SIZE - 4
-        # Candidate surfaces
+        # Candidate surfaces (column, y-resting-on-top).
         slots = [
             ((c0 + c1) // 2, r * TILE_SIZE - pu_size)
             for (r, c0, c1) in self._platform_clusters()
@@ -148,9 +157,10 @@ class LevelBase:
         spawns = []
         chosen_cols = []
         for kind in kinds:
-            # Prefer spaced-out slots
+            # Prefer a slot spaced out from the ones already chosen.
             pick = next(
-                (s for s in slots if all(abs(s[0] - c) >= 3 for c in chosen_cols)),
+                (s for s in slots if all(
+                    abs(s[0] - c) >= 3 for c in chosen_cols)),
                 slots[0] if slots else None,
             )
             if pick is None:
@@ -180,8 +190,11 @@ class LevelBase:
                 elif tile == self.SPIKE:
                     pygame.draw.rect(surface, (200, 50, 50), rect)
 
-    def get_princess_position(self):
-        return (self.pixel_width - 2 * TILE_SIZE, TILE_SIZE)
 
-    def get_enemy_spawns(self):
-        return []
+def get_princess_position(self) -> tuple[int, int]:
+    """Get princess spawn position - override in child classes"""
+    return (self.pixel_width - 2 * TILE_SIZE, TILE_SIZE)
+
+
+def get_enemy_spawns(self):
+    return []

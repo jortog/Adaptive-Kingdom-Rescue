@@ -23,7 +23,8 @@ class PowerUp(pygame.sprite.Sprite):
         rx = self.rect.x - camera_offset_x
         ry = self.rect.y + world_y_offset
         s = self.size
-        pygame.draw.ellipse(surface, (0, 0, 0, 60), (rx + 2, ry + s - 6, s - 4, 6))
+        pygame.draw.ellipse(surface, (0, 0, 0, 60),
+                            (rx + 2, ry + s - 6, s - 4, 6))
         if self.kind == "mushroom":
             pygame.draw.rect(
                 surface,
@@ -31,12 +32,14 @@ class PowerUp(pygame.sprite.Sprite):
                 (rx + s // 4, ry + s // 2, s // 2, s // 2),
                 border_radius=3,
             )
-            pygame.draw.ellipse(surface, (220, 40, 40), (rx, ry, s, s * 2 // 3))
+            pygame.draw.ellipse(surface, (220, 40, 40),
+                                (rx, ry, s, s * 2 // 3))
             pygame.draw.ellipse(
                 surface, (255, 80, 80), (rx + 4, ry + 4, s // 4, s // 5)
             )
             pygame.draw.circle(
-                surface, (255, 255, 255), (rx + s * 3 // 4, ry + s // 4), s // 8
+                surface, (255, 255, 255), (rx + s *
+                                           3 // 4, ry + s // 4), s // 8
             )
             pygame.draw.circle(
                 surface, (255, 255, 255), (rx + s // 4, ry + s // 3), s // 10
@@ -48,15 +51,18 @@ class PowerUp(pygame.sprite.Sprite):
                 py = cy + int(s // 3 * math.sin(math.radians(angle)))
                 pygame.draw.circle(surface, (255, 180, 20), (px, py), s // 5)
             pygame.draw.circle(surface, (255, 60, 60), (cx, cy), s // 4)
-            pygame.draw.circle(surface, (255, 120, 120), (cx - 2, cy - 2), s // 8)
+            pygame.draw.circle(surface, (255, 120, 120),
+                               (cx - 2, cy - 2), s // 8)
         elif self.kind == "star":
             cx, cy = rx + s // 2, ry + s // 2 + 2
             pts = []
             for i in range(5):
                 ao = math.radians(-90 + i * 72)
                 ai = math.radians(-90 + i * 72 + 36)
-                pts.append((cx + s // 2 * math.cos(ao), cy + s // 2 * math.sin(ao)))
-                pts.append((cx + s // 4 * math.cos(ai), cy + s // 4 * math.sin(ai)))
+                pts.append((cx + s // 2 * math.cos(ao),
+                           cy + s // 2 * math.sin(ao)))
+                pts.append((cx + s // 4 * math.cos(ai),
+                           cy + s // 4 * math.sin(ai)))
             pygame.draw.polygon(surface, (255, 220, 0), pts)
             pygame.draw.polygon(surface, (255, 160, 0), pts, 2)
         elif self.kind == "shield":
@@ -99,9 +105,12 @@ class PowerUp(pygame.sprite.Sprite):
                 (rx + s // 4, ry + s // 2, s // 2, s // 2),
                 border_radius=3,
             )
-            pygame.draw.ellipse(surface, (40, 180, 40), (rx, ry, s, s * 2 // 3))
+            pygame.draw.ellipse(surface, (40, 180, 40),
+                                (rx, ry, s, s * 2 // 3))
             pygame.draw.circle(
-                surface, (255, 255, 255), (rx + s * 3 // 4, ry + s // 4), s // 8
+                surface, (255, 255, 255), (rx + s *
+                                           3 // 4, ry + s // 4), s // 8
             )
             lbl = _f(10).render("1UP", True, (0, 0, 0))
-            surface.blit(lbl, (rx + s // 2 - lbl.get_width() // 2, ry + s // 2 + 4))
+            surface.blit(
+                lbl, (rx + s // 2 - lbl.get_width() // 2, ry + s // 2 + 4))
