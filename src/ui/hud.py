@@ -89,12 +89,21 @@ class HUD:
         if gs.lives>5:
             surface.blit(self.fp_lbl.render(f"+{gs.lives-5}", True, C_RED), (lx+82, 18))
 
-        # TIME — flat, cached
-        surface.blit(self.fp_lbl.render("TIME", True, C_DIM), (SCREEN_WIDTH-94, 4))
-        import math
-        ts = max(0, math.ceil(time_remaining))
-        tcol = C_RED if ts < 10 else C_CREAM
-        surface.blit(self._get_time_img(ts, tcol), (SCREEN_WIDTH-88, 15))
+        # TIME (right)
+        time_label = self.fp_lbl.render("TIME", True, C_DIM)
+        time_label_x = SCREEN_WIDTH - time_label.get_width() - 18
+        _text3d(surface, "TIME", self.fp_lbl, C_DIM, C_BLACK, time_label_x, 5)
+        total_seconds = max(0, int(time_remaining))
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        tcol = C_RED if total_seconds < 20 else (255, 165, 40) if total_seconds < 40 else C_CREAM
+        tsh = C_RED_D if total_seconds < 20 else (110, 75, 0) if total_seconds < 40 else (60, 50, 30)
+        time_text = f"{minutes}:{seconds:02d}"
+        self.time_font = pygame.font.SysFont("Courier New", 23, bold=True)
+        time_img = self.time_font.render(time_text, True, tcol)
+        time_box = pygame.Rect(SCREEN_WIDTH - 82, 17, 64, 25)
+        pygame.draw.rect(surface, (3, 5, 14, 160), time_box, border_radius=3)
+        _text3d(surface, time_text, self.time_font, tcol, tsh, time_box.right - time_img.get_width() - 4, time_box.y - 1)
 
         # AI ADAPT BAR
         conf=max(0.0,min(1.0,float(rnn_confidence)))
@@ -102,7 +111,7 @@ class HUD:
         self._adapt_progress += (target - self._adapt_progress) * 0.18
         prog = max(0.0, min(1.0, self._adapt_progress))
 
-        warn="AI HAS ADAPTED!" if prog>=0.95 else ("AI ADAPTING..." if prog>0.35 else "AI READING YOU")
+        warn="AI HAS ADAPTED!" if prog>=0.95 else ("AI ADAPTING..." if prog>0.35 else "AI LEARNING YOUR MOVES")
         wcol=(255,90,90) if prog>0.35 else C_DIM
         wimg=self.fp_warn.render(warn,True,wcol)
         surface.blit(wimg, (SCREEN_WIDTH//2-wimg.get_width()//2, 42))

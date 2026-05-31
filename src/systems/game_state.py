@@ -6,6 +6,7 @@ import time
 class GameState:
     def __init__(self):
         self.reset_session()
+        self.enemies_defeated_total = 0
 
     def reset_session(self):
         self.lives = PLAYER_START_LIVES

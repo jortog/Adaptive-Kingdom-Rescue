@@ -192,6 +192,7 @@ class Game:
                 self.player.vel_y = -400
                 self.audio.play_defeat()
                 self.scoring.award_enemy_defeat(e.enemy_type, not self.player.on_ground)
+                self.gs.enemies_defeated_total += 1
                 frame_reward -= 0.4
             else:
                 old_size = self.player.size_level
