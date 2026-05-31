@@ -47,7 +47,8 @@ class Game:
         pygame.mixer.init()
         self.audio = AudioManager()
         self.audio.play_bgm(MENU_BGM, loop=True, start_pos=12)
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
+        self.screen = pygame.display.set_mode(
+            (SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
         self.gs = GameState()
@@ -77,15 +78,36 @@ class Game:
     def _start_menu_music(self):
         self.audio.play_bgm(MENU_BGM, loop=True, start_pos=12)
 
+    def player_died_from_enemy(self):
+        """Called when player dies from any cause"""
+        self.gs.lives -= 1
+        self.gs.player_deaths_this_level += 1
+        self.gs.damage_taken_this_level += 1
+        self.audio.play_death()
+
+        print(f"Player died! Lives remaining: {self.gs.lives}")
+
+        if self.gs.lives <= 0:
+            self.scene = SCENE_GAME_OVER
+            print("Game Over - No lives left")
+        else:
+            # Reload current level
+            self.load_level(self.gs.level_index)
+
     def load_level(self, idx):
         idx = min(max(idx, 0), NUM_LEVELS - 1)
+        print(f"Loading level {idx + 1}")
+
         # Fresh seed each load → platform layout varies every attempt.
         self.level = LEVELS[idx](seed=random.randrange(1 << 30))
         self.gs.reset_level()
+        self.gs.level_index = idx
+        self.gs.damage_taken_this_level = 0
         self.time_remaining = LEVEL_TIME_LIMIT
         self._max_level_progress = 0.0
         self._aerial_spawn_cd = 0.0
         self.player = Player(self.level.spawn_x, self.level.spawn_y, self.gs)
+        self.player.game = self  # Set reference to game
         self.player.audio = self.audio
         self.camera = Camera(self.level.pixel_width, self.level.pixel_height)
         self.scoring = ScoringSystem(self.gs)
@@ -111,8 +133,7 @@ class Game:
         self._enemy_cap = len(self.enemies) + 2
         px, py = self.level.get_princess_position()
         self.princess = Princess(px, py)
-        # Random but reachable: each power-up rests on the ground or on top of a
-        # reachable platform, re-rolled per attempt like the platforms.
+        # Random but reachable power-ups
         self.powerups = [
             PowerUp(x, y, kind)
             for (x, y, kind) in self.level.get_powerup_spawns(
@@ -123,7 +144,11 @@ class Game:
     def update_game(self, dt):
         self.time_remaining -= dt
         self.gs.level_time_elapsed += dt
-        self.player.update(dt, self.level.platforms, self.level.pixel_width)
+
+        # Pass enemies list correctly to player.update()
+        self.player.update(dt, self.level.platforms,
+                           self.enemies, self.level.pixel_width)
+
         self.camera.update(self.player.rect, dt)
         jf = self.gs.count_recent_action(ACTION_JUMP)
         rf = self.gs.count_recent_action(ACTION_RUN)
@@ -134,10 +159,10 @@ class Game:
         self.ai_ensemble.pre_frame(dt, ah, difficulty)
         player_jumped = self.player.vel_y < -300 and not self.player.on_ground
         spawn_requested = False
-        # Closest enemies claim the limited aggression budget first, so the
-        # player is pressured from nearby — never swarmed from every side at once.
+
+        # Closest enemies claim the limited aggression budget first
         ordered = sorted(
-            (e for e in self.enemies if e.alive),
+            (e for e in self.enemies if e.is_alive),
             key=lambda e: abs(e.rect.centerx - self.player.rect.centerx),
         )
         for e in ordered:
@@ -156,8 +181,9 @@ class Game:
             if player_jumped and abs(e.rect.centerx - self.player.rect.centerx) < 380:
                 e.mirror_jump(self.player.vel_y)
             e.update(dt, self.player.rect, self.level.platforms)
+
         self._aerial_spawn_cd -= dt
-        alive_count = sum(1 for e in self.enemies if e.alive)
+        alive_count = sum(1 for e in self.enemies if e.is_alive)
         if (
             spawn_requested
             and self._aerial_spawn_cd <= 0
@@ -165,59 +191,21 @@ class Game:
             and difficulty >= 0.45
             and alive_count < self._enemy_cap
         ):
-            x = self.player.rect.centerx + random.randint(-TILE_SIZE, TILE_SIZE)
+            x = self.player.rect.centerx + \
+                random.randint(-TILE_SIZE, TILE_SIZE)
             y = self.player.rect.top - 3 * TILE_SIZE
             fly = Enemy(x, y, enemy_type="flying")
             fly.set_command(1)
             self.enemies.append(fly)
             self._aerial_spawn_cd = self.AERIAL_SPAWN_CD
-        for e in list(self.enemies):
-            if not e.alive or not self.player.rect.colliderect(e.rect):
-                continue
-            stomp = pygame.Rect(
-                e.rect.x, e.rect.y - 2, e.rect.width, e.rect.height * 0.55
-            )
-            pbot = pygame.Rect(
-                self.player.rect.x,
-                self.player.rect.bottom - 10,
-                self.player.rect.width,
-                12,
-            )
-            falling = self.player.vel_y > -50
-            above = self.player.rect.centery < e.rect.centery
-            if pbot.colliderect(stomp) and falling and above:
-                e.die()
-                self.enemies.remove(e)
-                self.player.vel_y = -400
-                self.audio.play_defeat()
-                self.scoring.award_enemy_defeat(e.enemy_type, not self.player.on_ground)
-            else:
-                old_size = self.player.size_level
-                old_shields = self.player.shield_count
-                if self.player.take_damage():
-                    self.gs.damage_taken_this_level += 1
-                    self.gs.lives -= 1
-                    self.audio.play_death()
-                    self.gs.player_deaths_this_level += 1
-                    self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-                    if self.gs.lives > 0:
-                        self.load_level(self.gs.level_index)
-                    return
-                elif (
-                    self.player.size_level < old_size
-                    or self.player.shield_count < old_shields
-                ):
-                    self.gs.damage_taken_this_level += 1
+
+        # Hazard collision
         for hz in self.level.hazards:
             if self.player.rect.colliderect(hz):
-                self.gs.lives -= 1
-                self.audio.play_death()
-                self.gs.player_deaths_this_level += 1
-                self.gs.damage_taken_this_level += 1
-                self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-                if self.gs.lives > 0:
-                    self.load_level(self.gs.level_index)
+                self.player_died_from_enemy()
                 return
+
+        # Powerup collection
         for pu in list(self.powerups):
             if self.player.rect.colliderect(pu.rect):
                 if pu.kind == "oneup":
@@ -229,18 +217,17 @@ class Game:
                 self.scoring.award_powerup(pu.kind)
                 self.powerups.remove(pu)
 
+        # Princess collision - level complete
         if self.player.rect.colliderect(self.princess.rect):
             self.scoring.award_level_complete(
                 self.time_remaining, self.gs.damage_taken_this_level == 0
             )
 
             self.ai_ensemble.learn_after_level(list(self.gs.action_history))
-
             self.ai_ensemble.save_all()
 
             finished_level = self.gs.level_index + 1
             self._finished_level = finished_level
-
             self.gs.level_index += 1
 
             if self.gs.level_index >= NUM_LEVELS:
@@ -248,17 +235,13 @@ class Game:
             else:
                 self.scene = SCENE_LEVEL_COMPLETE
             return
+
+        # Death from falling or time out
         if (
             self.player.rect.top > self.level.pixel_height + 100
             or self.time_remaining <= 0
         ):
-            self.gs.lives -= 1
-            self.audio.play_death()
-            self.gs.player_deaths_this_level += 1
-            self.gs.damage_taken_this_level += 1
-            self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-            if self.gs.lives > 0:
-                self.load_level(self.gs.level_index)
+            self.player_died_from_enemy()
             return
 
     def draw_game(self):
@@ -272,13 +255,16 @@ class Game:
         for e in self.enemies:
             e.draw(self.screen, cx, y_offset)
         self.player.draw(self.screen, cx, y_offset)
-        current_progress = self.player.rect.centerx / max(self.princess.rect.centerx, 1)
-        self._max_level_progress = max(self._max_level_progress, current_progress)
+        current_progress = self.player.rect.centerx / \
+            max(self.princess.rect.centerx, 1)
+        self._max_level_progress = max(
+            self._max_level_progress, current_progress)
         self.hud.draw(
             self.screen,
             self.gs,
             self.time_remaining,
             self._max_level_progress,
+            self.player,
         )
         if self.show_ai_debug and self.ai_ensemble:
             snap = self.ai_ensemble.debug_snapshot()
@@ -287,7 +273,8 @@ class Game:
             if snap["command"] != self._last_logged_strat:
                 self._last_logged_strat = snap["command"]
                 lines = ai_debug_lines(recent, snap)
-                print("[AI] " + " | ".join(f"{lbl} {val}" for lbl, val in lines))
+                print(
+                    "[AI] " + " | ".join(f"{lbl} {val}" for lbl, val in lines))
 
     def _settings_key(self, event):
         N = 4
@@ -302,10 +289,12 @@ class Game:
                 self.audio.set_music_enabled(self.settings["music"])
             elif c == 1:  # Start Level
                 if event.key == pygame.K_RIGHT:
-                    self.selected_level = (self.selected_level + 1) % NUM_LEVELS
+                    self.selected_level = (
+                        self.selected_level + 1) % NUM_LEVELS
                 elif event.key == pygame.K_LEFT:
-                    self.selected_level = (self.selected_level - 1) % NUM_LEVELS
-            elif c == 3 and event.key == pygame.K_RETURN:  # Back (c == 2 is Controls)
+                    self.selected_level = (
+                        self.selected_level - 1) % NUM_LEVELS
+            elif c == 3 and event.key == pygame.K_RETURN:  # Back
                 self.scene = self._settings_from
         elif event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
             self.scene = self._settings_from
@@ -369,7 +358,8 @@ class Game:
                 elif self.scene == SCENE_SETTINGS and event.type == pygame.KEYDOWN:
                     self._settings_key(event)
                 elif (
-                    self.scene in (SCENE_LEVEL_COMPLETE, SCENE_GAME_OVER, SCENE_WIN)
+                    self.scene in (SCENE_LEVEL_COMPLETE,
+                                   SCENE_GAME_OVER, SCENE_WIN)
                     and event.type == pygame.KEYDOWN
                 ):
                     if event.key == pygame.K_RETURN:
@@ -383,8 +373,6 @@ class Game:
                             self.load_level(self.gs.level_index)
                             self.scene = SCENE_GAME
                         elif self.scene == SCENE_WIN:
-                            # Replay from the start; the AI is now more "trained"
-                            # (adaptation grew), so this run plays harder.
                             self.gs.reset_session()
                             self.gs.level_index = 0
                             self.load_level(0)

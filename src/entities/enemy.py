@@ -31,7 +31,8 @@ def _font():
 
 def _badge_label(state):
     if state not in _LBL_CACHE:
-        _LBL_CACHE[state] = _font().render(state[:3].upper(), True, (255, 255, 255))
+        _LBL_CACHE[state] = _font().render(
+            state[:3].upper(), True, (255, 255, 255))
     return _LBL_CACHE[state]
 
 
@@ -65,7 +66,7 @@ class Enemy(pygame.sprite.Sprite):
         self.patrol_left = patrol_left if patrol_left else x - 3 * TILE_SIZE
         self.patrol_right = patrol_right if patrol_right else x + 3 * TILE_SIZE
         self.state = "patrol"
-        self.alive = True
+        self.is_alive = True  # Changed from 'alive' to avoid conflict with pygame.Sprite
         self.on_ground = False
         self.current_command = STRAT_PATROL
         # hop timer for hop-chop and flophopper
@@ -93,7 +94,7 @@ class Enemy(pygame.sprite.Sprite):
             self.on_ground = False
 
     def update(self, dt, player_rect, platforms):
-        if not self.alive:
+        if not self.is_alive:
             return
         self._anim += dt
 
@@ -135,13 +136,13 @@ class Enemy(pygame.sprite.Sprite):
                 )
                 self.rect.y += int((target_y - self.rect.y) * 3.0 * dt)
 
-        # Gravity / collisions
+        # Gravity / collisions - now uses dt parameter correctly
         if self.affected_by_gravity:
             if not self.on_ground:
                 self.vel_y += GRAVITY * dt
                 self.vel_y = min(self.vel_y, 1200)
             self.on_ground = False
-            self.rect.y += int(self.vel_y * (1 / 60))
+            self.rect.y += int(self.vel_y * dt)
             for p in platforms:
                 if self.rect.colliderect(p) and self.vel_y >= 0:
                     self.rect.bottom = p.top
@@ -156,11 +157,11 @@ class Enemy(pygame.sprite.Sprite):
                 self.vel_x = -ENEMY_PATROL_SPEED
 
     def die(self):
-        self.alive = False
+        self.is_alive = False
         self.kill()
 
     def draw(self, surface, camera_offset_x, world_y_offset=0):
-        if not self.alive:
+        if not self.is_alive:
             return
         rx = self.rect.x - camera_offset_x
         ry = self.rect.y + world_y_offset
@@ -207,24 +208,29 @@ class Enemy(pygame.sprite.Sprite):
             # Eyes
             ey = body.y + 10
             pygame.draw.circle(surface, (255, 255, 255), (body.x + 8, ey), 3)
-            pygame.draw.circle(surface, (255, 255, 255), (body.right - 8, ey), 3)
+            pygame.draw.circle(surface, (255, 255, 255),
+                               (body.right - 8, ey), 3)
             pygame.draw.circle(surface, (20, 20, 20), (body.x + 8, ey + 1), 2)
-            pygame.draw.circle(surface, (20, 20, 20), (body.right - 8, ey + 1), 2)
+            pygame.draw.circle(surface, (20, 20, 20),
+                               (body.right - 8, ey + 1), 2)
 
         elif self.enemy_type == "flophopper":
             # Flophopper: red dome bug with eyes and yellow feet
             wob = int(math.sin(self._anim * 6) * 1)
             # Yellow feet
-            pygame.draw.ellipse(surface, (245, 210, 40), (rx - 2, ry + h - 7, 12, 8))
+            pygame.draw.ellipse(surface, (245, 210, 40),
+                                (rx - 2, ry + h - 7, 12, 8))
             pygame.draw.ellipse(
                 surface, (245, 210, 40), (rx + w - 10, ry + h - 7, 12, 8)
             )
             # Red dome body
-            pygame.draw.ellipse(surface, (195, 40, 40), (rx, ry + wob, w, h - 2))
+            pygame.draw.ellipse(surface, (195, 40, 40),
+                                (rx, ry + wob, w, h - 2))
             pygame.draw.ellipse(
                 surface, (235, 90, 90), (rx + 4, ry + 2 + wob, w - 8, h // 2)
             )
-            pygame.draw.ellipse(surface, (120, 20, 20), (rx, ry + wob, w, h - 2), 2)
+            pygame.draw.ellipse(surface, (120, 20, 20),
+                                (rx, ry + wob, w, h - 2), 2)
             # Highlight stripe
             pygame.draw.line(
                 surface,
@@ -236,11 +242,16 @@ class Enemy(pygame.sprite.Sprite):
             # Big cartoon eyes
             ey = cy - 2 + wob
             pygame.draw.circle(surface, (255, 255, 255), (rx + w // 3, ey), 5)
-            pygame.draw.circle(surface, (255, 255, 255), (rx + 2 * w // 3, ey), 5)
-            pygame.draw.circle(surface, (20, 20, 20), (rx + w // 3 + 1, ey + 1), 3)
-            pygame.draw.circle(surface, (20, 20, 20), (rx + 2 * w // 3 + 1, ey + 1), 3)
-            pygame.draw.circle(surface, (255, 255, 255), (rx + w // 3 + 2, ey), 1)
-            pygame.draw.circle(surface, (255, 255, 255), (rx + 2 * w // 3 + 2, ey), 1)
+            pygame.draw.circle(surface, (255, 255, 255),
+                               (rx + 2 * w // 3, ey), 5)
+            pygame.draw.circle(surface, (20, 20, 20),
+                               (rx + w // 3 + 1, ey + 1), 3)
+            pygame.draw.circle(surface, (20, 20, 20),
+                               (rx + 2 * w // 3 + 1, ey + 1), 3)
+            pygame.draw.circle(surface, (255, 255, 255),
+                               (rx + w // 3 + 2, ey), 1)
+            pygame.draw.circle(surface, (255, 255, 255),
+                               (rx + 2 * w // 3 + 2, ey), 1)
 
         else:  # flying — purple ghost bird
             flap = int(math.sin(self._anim * 10) * 3)
@@ -275,7 +286,8 @@ class Enemy(pygame.sprite.Sprite):
             pygame.draw.ellipse(surface, (80, 40, 130), (rx, ry, w, h + 4), 2)
             # Eyes (yellow ovals)
             ey = ry + h // 3
-            pygame.draw.ellipse(surface, (0, 0, 0), (rx + w // 4 - 3, ey - 4, 8, 10))
+            pygame.draw.ellipse(surface, (0, 0, 0),
+                                (rx + w // 4 - 3, ey - 4, 8, 10))
             pygame.draw.ellipse(
                 surface, (0, 0, 0), (rx + 3 * w // 4 - 5, ey - 4, 8, 10)
             )

@@ -31,7 +31,8 @@ class LevelBase:
         self.spawn_y = 0
         self._build_from_tilemap()
         self.pixel_width = (
-            len(self.TILE_MAP[0]) * TILE_SIZE if self.TILE_MAP else SCREEN_WIDTH
+            len(self.TILE_MAP[0]) *
+            TILE_SIZE if self.TILE_MAP else SCREEN_WIDTH
         )
         self.pixel_height = (
             len(self.TILE_MAP) * TILE_SIZE if self.TILE_MAP else SCREEN_HEIGHT
@@ -69,7 +70,8 @@ class LevelBase:
         upper_row = ground_row - 4
         # Leave the player spawn (left) and princess (right) columns clear.
         c_min, c_max = 3, cols - 4
-        lower = self._scatter_row(grid, rng, lower_row, self.N_LOWER, c_min, c_max)
+        lower = self._scatter_row(
+            grid, rng, lower_row, self.N_LOWER, c_min, c_max)
         self._place_supported_row(
             grid, rng, upper_row, self.N_UPPER, c_min, c_max, lower
         )
@@ -157,7 +159,8 @@ class LevelBase:
         for kind in kinds:
             # Prefer a slot spaced out from the ones already chosen.
             pick = next(
-                (s for s in slots if all(abs(s[0] - c) >= 3 for c in chosen_cols)),
+                (s for s in slots if all(
+                    abs(s[0] - c) >= 3 for c in chosen_cols)),
                 slots[0] if slots else None,
             )
             if pick is None:
@@ -187,8 +190,11 @@ class LevelBase:
                 elif tile == self.SPIKE:
                     pygame.draw.rect(surface, (200, 50, 50), rect)
 
-    def get_princess_position(self):
-        return (self.pixel_width - 2 * TILE_SIZE, TILE_SIZE)
 
-    def get_enemy_spawns(self):
-        return []
+def get_princess_position(self) -> tuple[int, int]:
+    """Get princess spawn position - override in child classes"""
+    return (self.pixel_width - 2 * TILE_SIZE, TILE_SIZE)
+
+
+def get_enemy_spawns(self):
+    return []

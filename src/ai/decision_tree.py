@@ -2,10 +2,6 @@
 Decision Tree AI Layer
 Uses scikit-learn's DecisionTreeClassifier wrapped with hand-crafted
 training examples that encode the 50 designer rules described in the proposal.
-
-Because we cannot wait for training data collection to start the game,
-we bootstrap the tree with synthetic rule-encoding samples and update
-it periodically as real gameplay data accumulates.
 """
 
 import numpy as np
@@ -42,6 +38,8 @@ class DecisionTreeAI:
     """
 
     FEATURE_COUNT = 7
+    MAX_TRAINING_SAMPLES = 5000
+    BASE_SAMPLES_KEEP = 1000
 
     def __init__(self):
         self.model = DecisionTreeClassifier(max_depth=6, random_state=42)
@@ -50,6 +48,8 @@ class DecisionTreeAI:
         self._base_y = None
         self._bootstrap()
         self.load()
+        self._prediction_history = []  # Track prediction accuracy
+        self._outcome_history = []     # Track actual outcomes
 
     # Bootstrap with synthetic rule-encoding data
     def _bootstrap(self):
@@ -221,24 +221,82 @@ class DecisionTreeAI:
             dtype=np.float32,
         )
 
-    # Persistence
-    def update_from_examples(self, examples: list[tuple[np.ndarray, int]]):
+    # Persistence with improved training
+    def update_from_examples(self, examples: list[tuple[np.ndarray, int]], performance_weights=None):
+        """
+        Update the decision tree with new examples.
+        Args:
+            examples: List of (features, outcome) pairs
+            performance_weights: Optional weights for each example based on success
+        """
         if not examples:
             return
-        X_new = np.array([features for features, _ in examples], dtype=np.float32)
+
+        X_new = np.array(
+            [features for features, _ in examples], dtype=np.float32)
         y_new = np.array([label for _, label in examples], dtype=np.int32)
+
+        # Apply performance weights if provided
+        if performance_weights is not None:
+            weights = np.array(performance_weights, dtype=np.float32)
+            # Weighted sampling for training
+            indices = np.random.choice(len(X_new), size=min(
+                len(X_new), 2000), p=weights/weights.sum())
+            X_new = X_new[indices]
+            y_new = y_new[indices]
+
+        # Keep only recent base samples + new examples to prevent unlimited growth
         if self._base_X is not None and self._base_y is not None:
-            X = np.vstack([self._base_X, X_new])
-            y = np.concatenate([self._base_y, y_new])
+            # Keep last BASE_SAMPLES_KEEP from base
+            keep_indices = np.random.choice(len(self._base_X),
+                                            size=min(
+                                                self.BASE_SAMPLES_KEEP, len(self._base_X)),
+                                            replace=False)
+            X_base_trimmed = self._base_X[keep_indices]
+            y_base_trimmed = self._base_y[keep_indices]
+
+            # Combine base (limited) with new samples
+            combined_X = np.vstack([X_base_trimmed, X_new])
+            combined_y = np.concatenate([y_base_trimmed, y_new])
         else:
-            X, y = X_new, y_new
-        self.model.fit(X, y)
+            combined_X = X_new
+            combined_y = y_new
+
+        # Limit total samples
+        if len(combined_X) > self.MAX_TRAINING_SAMPLES:
+            indices = np.random.choice(
+                len(combined_X), self.MAX_TRAINING_SAMPLES, replace=False)
+            combined_X = combined_X[indices]
+            combined_y = combined_y[indices]
+
+        # Retrain model
+        self.model.fit(combined_X, combined_y)
         self._is_trained = True
+
+        # Store trimmed base for next update
+        self._base_X = combined_X
+        self._base_y = combined_y
+
+    def record_outcome(self, features, predicted_action, was_successful):
+        """Record whether a prediction led to a successful outcome"""
+        self._prediction_history.append(predicted_action)
+        self._outcome_history.append(1 if was_successful else 0)
+
+        # Keep only last 1000 outcomes
+        if len(self._prediction_history) > 1000:
+            self._prediction_history = self._prediction_history[-1000:]
+            self._outcome_history = self._outcome_history[-1000:]
+
+    def get_accuracy(self):
+        """Return recent prediction accuracy"""
+        if len(self._outcome_history) < 10:
+            return 0.5
+        return sum(self._outcome_history[-100:]) / min(100, len(self._outcome_history))
 
     def save(self):
         os.makedirs(os.path.dirname(DT_MODEL_PATH), exist_ok=True)
         with open(DT_MODEL_PATH, "wb") as f:
-            pickle.dump(self.model, f)
+            pickle.dump((self.model, self._base_X, self._base_y), f)
 
     def load(self):
         load_path = DT_MODEL_PATH
@@ -246,5 +304,9 @@ class DecisionTreeAI:
             load_path = DT_BASELINE_MODEL_PATH
         if os.path.exists(load_path):
             with open(load_path, "rb") as f:
-                self.model = pickle.load(f)
+                data = pickle.load(f)
+                if isinstance(data, tuple):
+                    self.model, self._base_X, self._base_y = data
+                else:
+                    self.model = data
             self._is_trained = True
