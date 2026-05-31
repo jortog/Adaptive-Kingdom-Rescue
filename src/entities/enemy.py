@@ -159,11 +159,11 @@ class Enemy(pygame.sprite.Sprite):
         self.alive = False
         self.kill()
 
-    def draw(self, surface, camera_offset_x):
+    def draw(self, surface, camera_offset_x, world_y_offset=0):
         if not self.alive:
             return
         rx = self.rect.x - camera_offset_x
-        ry = self.rect.y
+        ry = self.rect.y + world_y_offset
         w, h = self.rect.width, self.rect.height
         _cx, cy = rx + w // 2, ry + h // 2
 

@@ -281,19 +281,21 @@ class Game:
 
     def draw_game(self):
         cx = self.camera.int_x
-        self.level.draw_tiles(self.screen, cx)
+        y_offset = max(0, SCREEN_HEIGHT - self.level.pixel_height)
+        self.level.draw_tiles(self.screen, cx, world_y_offset=y_offset)
         for pu in self.powerups:
-            pu.draw(self.screen, cx)
+            pu.draw(self.screen, cx, y_offset)
         self.princess.update_bob(1 / 60)
-        self.princess.draw(self.screen, cx)
+        self.princess.draw(self.screen, cx, y_offset)
         for e in self.enemies:
-            e.draw(self.screen, cx)
-        self.player.draw(self.screen, cx)
+            e.draw(self.screen, cx, y_offset)
+        self.player.draw(self.screen, cx, y_offset)
+        level_progress = self.player.rect.centerx / max(self.princess.rect.centerx, 1)
         self.hud.draw(
             self.screen,
             self.gs,
             self.time_remaining,
-            self.ai_ensemble.rnn_confidence if self.ai_ensemble else 0.0,
+            level_progress,
         )
 
     def _apply_ai(self):

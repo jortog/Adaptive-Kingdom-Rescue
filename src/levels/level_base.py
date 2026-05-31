@@ -40,7 +40,7 @@ class LevelBase:
                     self.spawn_y = row_idx * TILE_SIZE - TILE_SIZE
                     break
 
-    def draw_tiles(self, surface, camera_offset_x, camera_offset_y=0):
+    def draw_tiles(self, surface, camera_offset_x, camera_offset_y=0, world_y_offset=0):
         draw_background(surface, camera_offset_x)
         for row_idx, row in enumerate(self.TILE_MAP):
             for col_idx, tile in enumerate(row):
@@ -48,7 +48,7 @@ class LevelBase:
                     continue
                 rect = pygame.Rect(
                     col_idx * TILE_SIZE - camera_offset_x,
-                    row_idx * TILE_SIZE - camera_offset_y,
+                    row_idx * TILE_SIZE + world_y_offset - camera_offset_y,
                     TILE_SIZE,
                     TILE_SIZE,
                 )

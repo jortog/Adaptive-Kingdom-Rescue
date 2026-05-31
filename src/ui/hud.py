@@ -46,13 +46,17 @@ def _text3d(surface, text, font, col, shadow_col, x, y, depth=2):
     surface.blit(font.render(text, True, col), (x, y))
 
 
+def _clamp01(value):
+    return max(0.0, min(float(value), 1.0))
+
+
 class HUD:
     def __init__(self):
         pygame.font.init()
         self.fp_val = _pf(18)
         self.fp_lbl = _pf(9)
 
-    def draw(self, surface, gs, time_remaining, rnn_confidence):
+    def draw(self, surface, gs, time_remaining, level_progress):
         # Panel
         panel = pygame.Surface((SCREEN_WIDTH, HUD_H), pygame.SRCALPHA)
         for y in range(HUD_H):
@@ -109,22 +113,35 @@ class HUD:
             )
 
         # TIME (right)
-        _text3d(surface, "TIME", self.fp_lbl, C_DIM, C_BLACK, SCREEN_WIDTH - 94, 5)
+        time_label = self.fp_lbl.render("TIME", True, C_DIM)
+        time_label_x = SCREEN_WIDTH - time_label.get_width() - 18
+        _text3d(surface, "TIME", self.fp_lbl, C_DIM, C_BLACK, time_label_x, 5)
         t = max(0, int(time_remaining))
         tcol = C_RED if t < 20 else (255, 165, 40) if t < 40 else C_CREAM
         tsh = C_RED_D if t < 20 else (110, 75, 0) if t < 40 else (60, 50, 30)
-        _text3d(surface, f"{t:03d}", self.fp_val, tcol, tsh, SCREEN_WIDTH - 88, 16)
+        time_text = f"{t:03d}"
+        time_img = self.fp_val.render(time_text, True, tcol)
+        _text3d(
+            surface,
+            time_text,
+            self.fp_val,
+            tcol,
+            tsh,
+            SCREEN_WIDTH - time_img.get_width() - 18,
+            16,
+        )
 
-        # AI READ bar (slim)
+        # Level progress bar
         bw, bh = 200, 5
         bx = SCREEN_WIDTH // 2 - bw // 2
         by = HUD_H - 10
         pygame.draw.rect(
             surface, (0, 0, 0), (bx - 1, by - 1, bw + 2, bh + 2), border_radius=2
         )
-        fw = int(bw * rnn_confidence)
-        for px2 in range(fw):
-            ratio = px2 / max(bw, 1)
-            col = (int(55 + 200 * ratio), int(205 - 165 * ratio), 48)
-            pygame.draw.line(surface, col, (bx + px2, by), (bx + px2, by + bh - 1))
+        progress = _clamp01(level_progress)
+        fw = int(bw * progress)
+        if fw > 0:
+            fill = pygame.Rect(bx, by, fw, bh)
+            pygame.draw.rect(surface, (70, 210, 90), fill, border_radius=2)
+            pygame.draw.rect(surface, C_GOLD, (bx, by, min(fw, 5), bh), border_radius=2)
         pygame.draw.line(surface, (255, 255, 255, 90), (bx, by), (bx + bw, by), 1)

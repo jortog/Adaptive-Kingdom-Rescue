@@ -223,11 +223,11 @@ class Player(pygame.sprite.Sprite):
             self.can_double_jump = True
 
     # Draw: armored knight
-    def draw(self, surface, camera_offset_x):
+    def draw(self, surface, camera_offset_x, world_y_offset=0):
         import math
 
         rx = self.rect.x - camera_offset_x
-        ry = self.rect.y
+        ry = self.rect.y + world_y_offset
         w, h = self.rect.width, self.rect.height
         fr = self.facing_right
         flip = 1 if fr else -1

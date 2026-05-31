@@ -15,11 +15,11 @@ class Princess(pygame.sprite.Sprite):
     def update_bob(self, dt):
         self._bob += dt * 2.5
 
-    def draw(self, surface, camera_offset_x):
+    def draw(self, surface, camera_offset_x, world_y_offset=0):
         # Draw region is taller than collision box; anchor sprite bottom to rect bottom
         DRAW_H = TILE_SIZE + 14
         rx = self.rect.x - camera_offset_x
-        ry = self.rect.bottom - DRAW_H + int(math.sin(self._bob) * 2)
+        ry = self.rect.bottom + world_y_offset - DRAW_H + int(math.sin(self._bob) * 2)
         w = self.rect.width
         h = DRAW_H
         cx = rx + w // 2

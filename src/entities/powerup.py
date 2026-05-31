@@ -19,9 +19,9 @@ class PowerUp(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, self.size, self.size)
         self.image = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
 
-    def draw(self, surface, camera_offset_x):
+    def draw(self, surface, camera_offset_x, world_y_offset=0):
         rx = self.rect.x - camera_offset_x
-        ry = self.rect.y
+        ry = self.rect.y + world_y_offset
         s = self.size
         pygame.draw.ellipse(surface, (0, 0, 0, 60), (rx + 2, ry + s - 6, s - 4, 6))
         if self.kind == "mushroom":
