@@ -14,7 +14,7 @@ class Level01(LevelBase):
     N_LOWER = 4
     N_UPPER = 1
 
-    def get_princess_position(self) -> tuple[int, int]:
+    def get_princess_position(self):
         cols = len(self.TILE_MAP[0])
         rows = len(self.TILE_MAP)
         return ((cols - 2) * TILE_SIZE, (rows - 2) * TILE_SIZE)

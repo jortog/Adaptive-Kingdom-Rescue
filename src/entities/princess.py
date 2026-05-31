@@ -7,21 +7,19 @@ from config import TILE_SIZE
 class Princess(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
-        # Keep collision box one tile tall, aligned to ground like before
+        # One-tile collision box
         self.rect = pygame.Rect(x, y, TILE_SIZE - 4, TILE_SIZE)
-        self.image = pygame.Surface(
-            (TILE_SIZE - 4, TILE_SIZE), pygame.SRCALPHA)
+        self.image = pygame.Surface((TILE_SIZE - 4, TILE_SIZE), pygame.SRCALPHA)
         self._bob = 0.0
 
     def update_bob(self, dt):
         self._bob += dt * 2.5
 
     def draw(self, surface, camera_offset_x, world_y_offset=0):
-        # Draw region is taller than collision box; anchor sprite bottom to rect bottom
+        # Taller sprite anchored to collision box
         DRAW_H = TILE_SIZE + 14
         rx = self.rect.x - camera_offset_x
-        ry = self.rect.bottom + world_y_offset - \
-            DRAW_H + int(math.sin(self._bob) * 2)
+        ry = self.rect.bottom + world_y_offset - DRAW_H + int(math.sin(self._bob) * 2)
         w = self.rect.width
         h = DRAW_H
         cx = rx + w // 2
@@ -54,12 +52,10 @@ class Princess(pygame.sprite.Sprite):
             [(cx, ry + h - 14), (cx - 5, ry + h - 4), (cx + 5, ry + h - 4)],
         )
         pygame.draw.line(
-            surface, robe_l, (cx - 3, ry + h // 3), (cx -
-                                                     w // 2 + 10, ry + h - 6), 2
+            surface, robe_l, (cx - 3, ry + h // 3), (cx - w // 2 + 10, ry + h - 6), 2
         )
 
-        pygame.draw.rect(surface, gold, (cx - 13, ry +
-                         h // 4, 26, 7), border_radius=3)
+        pygame.draw.rect(surface, gold, (cx - 13, ry + h // 4, 26, 7), border_radius=3)
         pygame.draw.rect(
             surface, gold_l, (cx - 13, ry + h // 4, 26, 3), border_radius=3
         )
@@ -86,8 +82,7 @@ class Princess(pygame.sprite.Sprite):
         pygame.draw.circle(surface, skin, (cx + 13, ry + h // 2 + 5), 3)
 
         pygame.draw.line(
-            surface, gold, (cx + 15, ry + h // 4), (cx +
-                                                    15, ry + h // 2 + 8), 2
+            surface, gold, (cx + 15, ry + h // 4), (cx + 15, ry + h // 2 + 8), 2
         )
         pygame.draw.circle(surface, gold_l, (cx + 15, ry + h // 4 - 2), 4)
         pygame.draw.circle(surface, gem, (cx + 15, ry + h // 4 - 2), 2)
@@ -97,8 +92,7 @@ class Princess(pygame.sprite.Sprite):
         pygame.draw.circle(surface, skin, (cx, ny), h // 8 + 2)
 
         pygame.draw.ellipse(
-            surface, hair, (cx - h // 8 - 3, ny - 6,
-                            (h // 8 + 3) * 2, h // 8 + 8)
+            surface, hair, (cx - h // 8 - 3, ny - 6, (h // 8 + 3) * 2, h // 8 + 8)
         )
         pygame.draw.circle(surface, skin, (cx, ny + 1), h // 8)
         pygame.draw.rect(surface, hair, (cx - h // 8 - 2, ny, 4, h // 4))
@@ -106,8 +100,7 @@ class Princess(pygame.sprite.Sprite):
 
         pygame.draw.circle(surface, (40, 40, 50), (cx - 3, ny), 1)
         pygame.draw.circle(surface, (40, 40, 50), (cx + 3, ny), 1)
-        pygame.draw.arc(surface, (190, 90, 90),
-                        (cx - 3, ny + 2, 6, 4), 3.6, 5.8, 1)
+        pygame.draw.arc(surface, (190, 90, 90), (cx - 3, ny + 2, 6, 4), 3.6, 5.8, 1)
 
         cyt = ny - h // 8 - 4
         crown = [
