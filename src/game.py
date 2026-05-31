@@ -105,7 +105,7 @@ class Game:
         gy = (rows - 2) * TILE_SIZE
         self.powerups = [
             PowerUp(6 * TILE_SIZE, gy - TILE_SIZE, "mushroom"),
-            PowerUp(14 * TILE_SIZE, gy - TILE_SIZE, "flower"),
+            PowerUp(14 * TILE_SIZE, gy - TILE_SIZE, "mushroom"),
             PowerUp(20 * TILE_SIZE, gy - TILE_SIZE, "star"),
         ]
 

@@ -402,8 +402,6 @@ class ScreenManager:
             ctrls = [
                 ("Move", "A / D  or  Arrows"),
                 ("Jump", "Z  or  SPACE"),
-                ("Dash", "X  or  L-SHIFT"),
-                ("Attack", "C  or  F"),
                 ("Pause", "P"),
             ]
             cy2 = oy + 5 * 60 - 12

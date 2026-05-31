@@ -5,17 +5,12 @@ from config import (
     PLAYER_HEIGHT,
     PLAYER_WALK_SPEED,
     PLAYER_RUN_SPEED,
-    PLAYER_DASH_SPEED,
-    PLAYER_DASH_DURATION,
-    PLAYER_DASH_COOLDOWN,
     PLAYER_JUMP_VELOCITY,
     PLAYER_HOLD_JUMP_BONUS,
     GRAVITY,
     ACTION_IDLE,
     ACTION_JUMP,
     ACTION_RUN,
-    ACTION_DASH,
-    ACTION_ATTACK,
 )
 
 
@@ -28,9 +23,6 @@ class Player(pygame.sprite.Sprite):
         self.vel_y = 0.0
         self.on_ground = False
         self.facing_right = True
-        self.is_dashing = False
-        self.dash_timer = 0.0
-        self.dash_cooldown = 0.0
         self.jump_held = False
         self.jump_held_timer = 0.0
         self.JUMP_HOLD_MAX = 0.18
@@ -42,7 +34,6 @@ class Player(pygame.sprite.Sprite):
         self._COYOTE_TIME = 0.10
         self._was_on_ground = False
         self.size_level = 1
-        self.has_flower = False
         self.star_timer = 0.0
         self.shield_count = 0
         self._action_record_timer = 0.0
@@ -53,14 +44,10 @@ class Player(pygame.sprite.Sprite):
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_x, pygame.K_LSHIFT):
-                self._try_dash()
             if event.key in (pygame.K_z, pygame.K_SPACE):
                 self._jump_buffer_timer = self._JUMP_BUFFER_TIME
                 self.jump_held = True
                 self.jump_held_timer = 0.0
-            if event.key in (pygame.K_c, pygame.K_f):
-                self._try_attack()
         if event.type == pygame.KEYUP:
             if event.key in (pygame.K_z, pygame.K_SPACE):
                 self.jump_held = False
@@ -106,23 +93,7 @@ class Player(pygame.sprite.Sprite):
         if self.audio:
             self.audio.play_jump()
 
-    def _try_dash(self):
-        if self.dash_cooldown <= 0 and not self.is_dashing:
-            self.is_dashing = True
-            self.dash_timer = PLAYER_DASH_DURATION
-            self.dash_cooldown = PLAYER_DASH_COOLDOWN
-            self.game_state.record_action(ACTION_DASH)
-
-    def _try_attack(self):
-        if self.has_flower:
-            self.game_state.record_action(ACTION_ATTACK)
-            return True
-        return False
-
     def _handle_horizontal(self, keys, dt):
-        if self.is_dashing:
-            self.vel_x = PLAYER_DASH_SPEED * (1 if self.facing_right else -1)
-            return
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.vel_x = -PLAYER_RUN_SPEED
             self.facing_right = False
@@ -177,12 +148,6 @@ class Player(pygame.sprite.Sprite):
                     self.vel_y = 0
 
     def _update_timers(self, dt):
-        if self.is_dashing:
-            self.dash_timer -= dt
-            if self.dash_timer <= 0:
-                self.is_dashing = False
-        if self.dash_cooldown > 0:
-            self.dash_cooldown -= dt
         if self.star_timer > 0:
             self.star_timer -= dt
 
@@ -203,7 +168,6 @@ class Player(pygame.sprite.Sprite):
             return False
         if self.size_level > 1:
             self.size_level -= 1
-            self.has_flower = False
             return False
         return True
 
@@ -212,7 +176,6 @@ class Player(pygame.sprite.Sprite):
             if self.size_level < 2:
                 self.size_level = 2
         elif kind == "flower":
-            self.has_flower = True
             if self.size_level < 2:
                 self.size_level = 2
         elif kind == "star":
@@ -240,8 +203,6 @@ class Player(pygame.sprite.Sprite):
         steel_l = (190, 198, 210) if not star_flash else (255, 245, 160)
         horn = (235, 238, 245)
         leather = (96, 62, 32)
-        blade = (150, 210, 255)
-        blade_c = (220, 245, 255)
 
         # leg bob when walking
         leg_off = int(math.sin(self._walk_phase) * 3) if self.on_ground else 0
@@ -284,17 +245,9 @@ class Player(pygame.sprite.Sprite):
 
         # Sword (front arm)
         sw_x = cx + 13 * flip
-        if self.has_flower or self.is_dashing:
-            pygame.draw.line(
-                surface, blade, (sw_x, ry + h // 2), (sw_x + 10 * flip, ry - 6), 3
-            )
-            pygame.draw.line(
-                surface, blade_c, (sw_x, ry + h // 2), (sw_x + 10 * flip, ry - 6), 1
-            )
-        else:
-            pygame.draw.line(
-                surface, steel_l, (sw_x, ry + h // 2 + 6), (sw_x, ry + h // 4), 3
-            )
+        pygame.draw.line(
+            surface, steel_l, (sw_x, ry + h // 2 + 6), (sw_x, ry + h // 4), 3
+        )
         pygame.draw.line(
             surface,
             leather,
