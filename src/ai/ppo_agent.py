@@ -70,7 +70,7 @@ class KingdomRescueEnv(gym.Env):
 
     def add_transition(self, next_obs: np.ndarray, reward: float, done: bool):
         self._transitions.append(
-            (next_obs.astype(np.float32), float(reward), bool(done))
+            (next_obs.astype(np.float32), reward, done)
         )
 
 

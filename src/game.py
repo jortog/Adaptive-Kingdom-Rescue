@@ -1,5 +1,6 @@
 import sys
 import random
+from typing import Optional, List
 
 import pygame
 
@@ -19,6 +20,7 @@ from src.entities.enemy import Enemy
 from src.entities.player import Player
 from src.entities.powerup import PowerUp
 from src.entities.princess import Princess
+from src.levels.level_base import LevelBase
 from src.levels.level_01 import Level01
 from src.levels.level_02 import Level02
 from src.levels.level_03 import Level03
@@ -55,9 +57,12 @@ class Game:
         self.screens = ScreenManager(self.screen)
         self.scene = SCENE_MENU
         self._finished_level = 1
-        self.level = self.player = self.camera = self.scoring = self.ai_ensemble = (
-            self.princess
-        ) = None
+        self.level: Optional[LevelBase] = None
+        self.player: Optional[Player] = None
+        self.camera: Optional[Camera] = None
+        self.scoring: Optional[ScoringSystem] = None
+        self.ai_ensemble: Optional[AIEnsemble] = None
+        self.princess: Optional[Princess] = None
         self.enemies = []
         self.powerups = []
         self.time_remaining = LEVEL_TIME_LIMIT
@@ -112,6 +117,7 @@ class Game:
         ]
 
     def _build_ppo_state(self, jump_freq=None, run_freq=None):
+        assert self.ai_ensemble is not None and self.player is not None and self.princess is not None
         if jump_freq is None:
             jump_freq = self.gs.count_recent_action(ACTION_JUMP)
         if run_freq is None:
@@ -128,11 +134,15 @@ class Game:
         )
 
     def _record_ppo_transition(self, state, action, reward, done=False):
+        assert self.ai_ensemble is not None
         next_state = self._build_ppo_state()
         self.gs.add_ppo_experience(state, action, reward, next_state, done)
         self.ai_ensemble.ppo.observe(state, action, reward, next_state, done)
 
     def update_game(self, dt):
+        assert self.player is not None and self.level is not None
+        assert self.camera is not None and self.ai_ensemble is not None
+        assert self.scoring is not None and self.princess is not None
         self.time_remaining -= dt
         self.gs.level_time_elapsed += dt
         self.player.update(dt, self.level.platforms, self.level.pixel_width)
@@ -147,7 +157,7 @@ class Game:
         player_jumped = self.player.vel_y < -300 and not self.player.on_ground
         spawn_requested = False
         for e in self.enemies:
-            if not e.alive:
+            if not e.is_alive:
                 continue
             cmd = self.ai_ensemble.get_command(
                 e.rect,
@@ -173,7 +183,7 @@ class Game:
             self.enemies.append(fly)
             self._aerial_spawn_cd = self.AERIAL_SPAWN_CD
         for e in list(self.enemies):
-            if not e.alive or not self.player.rect.colliderect(e.rect):
+            if not e.is_alive or not self.player.rect.colliderect(e.rect):
                 continue
             stomp = pygame.Rect(
                 e.rect.x, e.rect.y - 2, e.rect.width, e.rect.height * 0.55
@@ -282,6 +292,8 @@ class Game:
         self._record_ppo_transition(ppo_state, ppo_action, frame_reward)
 
     def draw_game(self):
+        assert self.camera is not None and self.level is not None
+        assert self.player is not None and self.princess is not None
         cx = self.camera.int_x
         y_offset = self.level.render_y
         self.level.draw_tiles(self.screen, cx)
@@ -304,7 +316,7 @@ class Game:
     def _apply_ai(self):
         if self.ai_ensemble:
             try:
-                self.ai_ensemble.ppo.model.ent_coef = (
+                self.ai_ensemble.ppo.model.ent_coef = (  # type: ignore[assignment]
                     0.005 if self.settings.get("ai_difficulty") == "challenge" else 0.01
                 )
             except Exception:

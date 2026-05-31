@@ -60,12 +60,12 @@ class Enemy(pygame.sprite.Sprite):
             self.affected_by_gravity = True
         self.rect = pygame.Rect(x, y, w, h)
         self.image = pygame.Surface((w, h), pygame.SRCALPHA)
-        self.vel_x = -ENEMY_PATROL_SPEED
+        self.vel_x: float = -ENEMY_PATROL_SPEED
         self.vel_y = 0.0
         self.patrol_left = patrol_left if patrol_left else x - 3 * TILE_SIZE
         self.patrol_right = patrol_right if patrol_right else x + 3 * TILE_SIZE
         self.state = "patrol"
-        self.alive = True
+        self.is_alive = True
         self.on_ground = False
         self.current_command = STRAT_PATROL
         # hop timer for hop-chop and flophopper
@@ -93,7 +93,7 @@ class Enemy(pygame.sprite.Sprite):
             self.on_ground = False
 
     def update(self, dt, player_rect, platforms):
-        if not self.alive:
+        if not self.is_alive:
             return
         self._anim += dt
 
@@ -156,11 +156,11 @@ class Enemy(pygame.sprite.Sprite):
                 self.vel_x = -ENEMY_PATROL_SPEED
 
     def die(self):
-        self.alive = False
+        self.is_alive = False
         self.kill()
 
     def draw(self, surface, camera_offset_x, world_y_offset=0):
-        if not self.alive:
+        if not self.is_alive:
             return
         rx = self.rect.x - camera_offset_x
         ry = self.rect.y + world_y_offset
