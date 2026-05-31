@@ -13,6 +13,9 @@ from config import (
     ACTION_RUN,
 )
 
+# Keys that trigger / hold a jump.
+JUMP_KEYS = (pygame.K_z, pygame.K_SPACE, pygame.K_UP, pygame.K_w)
+
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, game_state):
@@ -44,12 +47,12 @@ class Player(pygame.sprite.Sprite):
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_z, pygame.K_SPACE):
+            if event.key in JUMP_KEYS:
                 self._jump_buffer_timer = self._JUMP_BUFFER_TIME
                 self.jump_held = True
                 self.jump_held_timer = 0.0
         if event.type == pygame.KEYUP:
-            if event.key in (pygame.K_z, pygame.K_SPACE):
+            if event.key in JUMP_KEYS:
                 self.jump_held = False
 
     def update(self, dt, platforms, level_width=None):
@@ -106,7 +109,7 @@ class Player(pygame.sprite.Sprite):
     def _handle_jump_hold(self, keys, dt):
         if self.jump_held:
             if (
-                (keys[pygame.K_z] or keys[pygame.K_SPACE])
+                any(keys[k] for k in JUMP_KEYS)
                 and self.jump_held_timer < self.JUMP_HOLD_MAX
                 and self.vel_y < 0
             ):
