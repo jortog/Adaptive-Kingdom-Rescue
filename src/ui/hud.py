@@ -27,16 +27,24 @@ STRAT_RULE = {
 
 
 def ai_debug_lines(recent_actions, snapshot):
-    """Build the 4 demo lines shared by the overlay and the console log."""
+    """Build the demo lines shared by the overlay and the console log."""
     recent = [ACTION_NAMES[a] for a in recent_actions[-6:] if 0 <= a < len(ACTION_NAMES)]
     pred = snapshot.get("rnn_pred_action", 0)
     pred_name = ACTION_NAMES[pred] if 0 <= pred < len(ACTION_NAMES) else "?"
     conf = snapshot.get("rnn_confidence", 0.0)
+    ppo = snapshot.get("ppo_action", 0)
+    ppo_name = STRAT_NAMES[ppo] if 0 <= ppo < len(STRAT_NAMES) else "?"
     cmd = snapshot.get("command", 0)
     return [
         ("Recent Actions:", ", ".join(recent) if recent else "(none)"),
         ("RNN Prediction:", f"{pred_name} with {conf * 100:.0f}% confidence"),
-        ("Decision Tree Rule:", STRAT_RULE.get(cmd, STRAT_NAMES[cmd] if 0 <= cmd < len(STRAT_NAMES) else "?")),
+        ("PPO Strategy:", ppo_name),
+        (
+            "Decision Tree Rule:",
+            STRAT_RULE.get(
+                cmd, STRAT_NAMES[cmd] if 0 <= cmd < len(STRAT_NAMES) else "?"
+            ),
+        ),
         ("Enemy Response:", STRAT_RESPONSE.get(cmd, "?")),
     ]
 

@@ -19,6 +19,7 @@ class GameState:
         self.action_history = deque(maxlen=AI_ACTION_BUFFER_LEN)
         self.action_freq_window = []
         self.action_freq_timestamps = []
+        self.ppo_experience_buffer = []
         self.enemy_kill_streak = {}
         self.powerup_collect_recent = {}
         self.route_history = []
@@ -53,3 +54,13 @@ class GameState:
 
     def unique_actions_last_10s(self) -> int:
         return len(set(self.action_freq_window))
+
+    def add_ppo_experience(self, state, action, reward, next_state, done):
+        self.ppo_experience_buffer.append((state, action, reward, next_state, done))
+        if len(self.ppo_experience_buffer) > 5000:
+            self.ppo_experience_buffer = self.ppo_experience_buffer[-5000:]
+
+    def flush_ppo_buffer(self):
+        buf = list(self.ppo_experience_buffer)
+        self.ppo_experience_buffer.clear()
+        return buf

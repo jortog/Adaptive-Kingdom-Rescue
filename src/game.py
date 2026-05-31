@@ -109,6 +109,8 @@ class Game:
             )
         # Cap on total live enemies so aerial spawns can't snowball into a swarm.
         self._enemy_cap = len(self.enemies) + 2
+        if self.ai_ensemble is not None:
+            self.ai_ensemble.ppo.max_enemies = max(self._enemy_cap, 1)
         px, py = self.level.get_princess_position()
         self.princess = Princess(px, py)
         # Random but reachable: each power-up rests on the ground or on top of a
@@ -119,6 +121,29 @@ class Game:
                 ["mushroom", "mushroom", "star"]
             )
         ]
+
+    def _build_ppo_state(self, jump_freq=None, run_freq=None):
+        if jump_freq is None:
+            jump_freq = self.gs.count_recent_action(ACTION_JUMP)
+        if run_freq is None:
+            run_freq = self.gs.count_recent_action(ACTION_RUN)
+        alive_count = sum(1 for e in self.enemies if e.alive)
+        return self.ai_ensemble.ppo.build_state(
+            self.gs.level_time_elapsed,
+            self.gs.lives,
+            alive_count,
+            abs(self.princess.rect.centerx - self.player.rect.centerx),
+            jump_freq,
+            run_freq,
+            self.player.vel_x,
+            self.player.rect.centery,
+            self.level.pixel_height,
+        )
+
+    def _record_ppo_transition(self, state, action, reward, done=False):
+        next_state = self._build_ppo_state()
+        self.gs.add_ppo_experience(state, action, reward, next_state, done)
+        self.ai_ensemble.ppo.observe(state, action, reward, next_state, done)
 
     def update_game(self, dt):
         self.time_remaining -= dt
@@ -131,7 +156,10 @@ class Game:
         difficulty = self.ai_ensemble.compute_difficulty(
             self.gs.level_index, self.gs.level_time_elapsed
         )
-        self.ai_ensemble.pre_frame(dt, ah, difficulty)
+        ppo_state = self._build_ppo_state(jf, rf)
+        self.ai_ensemble.pre_frame(dt, ah, ppo_state, difficulty)
+        ppo_action = self.ai_ensemble._ppo_action
+        frame_reward = dt
         player_jumped = self.player.vel_y < -300 and not self.player.on_ground
         spawn_requested = False
         # Closest enemies claim the limited aggression budget first, so the
@@ -191,15 +219,22 @@ class Game:
                 self.player.vel_y = -400
                 self.audio.play_defeat()
                 self.scoring.award_enemy_defeat(e.enemy_type, not self.player.on_ground)
+                frame_reward -= 0.4
             else:
                 old_size = self.player.size_level
                 old_shields = self.player.shield_count
                 if self.player.take_damage():
                     self.gs.damage_taken_this_level += 1
                     self.gs.lives -= 1
+                    frame_reward += 0.75
                     self.audio.play_death()
+                    if self.gs.level_time_elapsed < 5.0:
+                        frame_reward -= 0.5
                     self.gs.player_deaths_this_level += 1
                     self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
+                    self._record_ppo_transition(
+                        ppo_state, ppo_action, frame_reward, done=True
+                    )
                     if self.gs.lives > 0:
                         self.load_level(self.gs.level_index)
                     return
@@ -208,13 +243,18 @@ class Game:
                     or self.player.shield_count < old_shields
                 ):
                     self.gs.damage_taken_this_level += 1
+                    frame_reward += 0.25
         for hz in self.level.hazards:
             if self.player.rect.colliderect(hz):
                 self.gs.lives -= 1
                 self.audio.play_death()
                 self.gs.player_deaths_this_level += 1
                 self.gs.damage_taken_this_level += 1
+                frame_reward += 0.75
                 self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
+                self._record_ppo_transition(
+                    ppo_state, ppo_action, frame_reward, done=True
+                )
                 if self.gs.lives > 0:
                     self.load_level(self.gs.level_index)
                 return
@@ -230,9 +270,12 @@ class Game:
                 self.powerups.remove(pu)
 
         if self.player.rect.colliderect(self.princess.rect):
+            frame_reward -= 2.0
             self.scoring.award_level_complete(
                 self.time_remaining, self.gs.damage_taken_this_level == 0
             )
+
+            self._record_ppo_transition(ppo_state, ppo_action, frame_reward, done=True)
 
             self.ai_ensemble.learn_after_level(list(self.gs.action_history))
 
@@ -256,10 +299,16 @@ class Game:
             self.audio.play_death()
             self.gs.player_deaths_this_level += 1
             self.gs.damage_taken_this_level += 1
+            frame_reward += 0.75
             self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
+            self._record_ppo_transition(
+                ppo_state, ppo_action, frame_reward, done=True
+            )
             if self.gs.lives > 0:
                 self.load_level(self.gs.level_index)
             return
+
+        self._record_ppo_transition(ppo_state, ppo_action, frame_reward)
 
     def draw_game(self):
         cx = self.camera.int_x

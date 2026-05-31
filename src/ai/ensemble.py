@@ -6,6 +6,7 @@ from config import (
     STRAT_COUNT,
     DT_WEIGHT,
     RNN_WEIGHT,
+    PPO_WEIGHT,
     ACTION_IDLE,
     ACTION_JUMP,
     STRAT_PATROL,
@@ -20,6 +21,7 @@ from config import (
     PROGRESS_PATH,
 )
 from src.ai.decision_tree import DecisionTreeAI
+from src.ai.ppo_agent import PPOAgent
 from src.ai.rnn_predictor import RNNPredictor
 
 # Strategies that actively close in on the player. Only a limited number of
@@ -39,7 +41,10 @@ class AIEnsemble:
     def __init__(self, level_width=5000, level_time=90.0):
         self.dt_ai = DecisionTreeAI()
         self.rnn = RNNPredictor()
+        self.ppo = PPOAgent(level_width=level_width, level_time=level_time)
         self._rnn_probs = np.ones(5, dtype=np.float32) / 5
+        self._ppo_action = STRAT_PATROL
+        self._ppo_strat = np.zeros(STRAT_COUNT, dtype=np.float32)
         self._rnn_strat = np.zeros(STRAT_COUNT, dtype=np.float32)
         self.rnn_confidence = 0.0
         self.rnn_pred_action = ACTION_IDLE
@@ -68,15 +73,17 @@ class AIEnsemble:
         """Count one try (a level attempt). Drives the difficulty ramp."""
         self.tries += 1
 
-    def pre_frame(self, dt, action_history, difficulty=0.5):
+    def pre_frame(self, dt, action_history, ppo_state, difficulty=0.5):
         """Call ONCE per frame. Shared values for all enemies."""
         self._difficulty = max(0.0, min(difficulty, 1.0))
         # 1 enemy presses through the whole basic range, 2 once trained, 3 only
         # at peak adaptation — never a full swarm.
         self._aggro_budget = 1 + int(self._difficulty * 2 + 1e-6)
         self._rnn_probs = self.rnn.tick(dt, action_history)
+        self._ppo_action = self.ppo.tick(dt, ppo_state)
         self.rnn_confidence = float(np.max(self._rnn_probs))
         self.rnn_pred_action = int(np.argmax(self._rnn_probs))
+        self._ppo_strat = self._one_hot(self._ppo_action, STRAT_COUNT)
         self._rnn_strat = self._rnn_to_strat(self._rnn_probs)
 
     def get_command(
@@ -99,15 +106,23 @@ class AIEnsemble:
             enemy_count,
             player_health,
         )
+        d = self._difficulty
         dt_probs = self.dt_ai.predict_proba(feats)
         dt_conf = float(np.max(dt_probs))
         dt_weight = DT_WEIGHT * max(dt_conf, 0.1)
         rnn_weight = RNN_WEIGHT * max(self.rnn_confidence, 0.1)
-        fused = dt_weight * dt_probs + rnn_weight * self._rnn_strat
+        # Scale PPO with difficulty: dampened over the first tries so the early
+        # game is reliably easy, ramping to full weight by peak tries so the
+        # (trained) agent becomes the main driver of the harder late game.
+        ppo_weight = PPO_WEIGHT * (0.2 + 0.8 * d)
+        fused = (
+            dt_weight * dt_probs
+            + rnn_weight * self._rnn_strat
+            + ppo_weight * self._ppo_strat
+        )
         # Difficulty shaping: calmer when easy (lean toward patrol), pushier when
         # hard. This thins out how many enemies *want* to attack before the
         # budget even kicks in.
-        d = self._difficulty
         aggro_scale = 0.6 + 0.8 * d
         for s in PRESSURE_STRATS:
             fused[s] *= aggro_scale
@@ -138,11 +153,19 @@ class AIEnsemble:
             strat[s] += prob
         return strat
 
+    @staticmethod
+    def _one_hot(idx, size):
+        v = np.zeros(size, dtype=np.float32)
+        if 0 <= idx < size:
+            v[idx] = 1.0
+        return v
+
     def debug_snapshot(self):
         """Read-only AI state for the demo overlay / console log."""
         return {
             "rnn_pred_action": self.rnn_pred_action,
             "rnn_confidence": self.rnn_confidence,
+            "ppo_action": self._ppo_action,
             "command": self.last_command,
         }
 
@@ -155,6 +178,7 @@ class AIEnsemble:
     def save_all(self):
         self.dt_ai.save()
         self.rnn.save()
+        self.ppo.save()
         self._save_tries()
 
     def _load_tries(self):

@@ -304,6 +304,7 @@ class ScreenManager:
         tags = [
             ("Decision Tree", (85, 215, 85)),
             ("  +  RNN/LSTM", (85, 155, 255)),
+            ("  +  PPO", (255, 160, 65)),
         ]
         fx = M
         for ltxt, lcol in tags:
