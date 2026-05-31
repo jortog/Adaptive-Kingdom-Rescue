@@ -12,7 +12,6 @@ class GameState:
         self.score = 0
         self.level_index = 0
         self.total_attempts = 0
-        self.challenge_mode = False
         self.level_time_elapsed = 0.0
         self.checkpoints_reached = set()
         self.damage_taken_this_level = 0

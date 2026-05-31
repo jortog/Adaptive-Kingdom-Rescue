@@ -364,12 +364,6 @@ class ScreenManager:
         options = [
             ("Menu Music", "ON" if settings.get("music", True) else "OFF"),
             ("Start Level", level_label),
-            (
-                "AI Difficulty",
-                "Challenge"
-                if settings.get("ai_difficulty", "normal") == "challenge"
-                else "Normal",
-            ),
             ("Controls", "VIEW"),
             ("Back", ""),
         ]
@@ -397,13 +391,13 @@ class ScreenManager:
                 vi = self.fp_med.render(vtxt, True, vc)
                 self.surface.blit(vi, (px + pw - vi.get_width() - 28, row_y + 2))
 
-        if cursor == 3:
+        if cursor == 2:
             ctrls = [
                 ("Move", "A / D  or  Arrows"),
-                ("Jump", "Z  or  SPACE"),
+                ("Jump", "SPACE / W / UP / Z"),
                 ("Pause", "P"),
             ]
-            cy2 = oy + 5 * 60 - 12
+            cy2 = oy + 4 * 60 - 12
             for ci, (act, key) in enumerate(ctrls):
                 self.surface.blit(
                     self.fs_tiny.render(act, True, (110, 104, 88)),
@@ -632,12 +626,12 @@ class ScreenManager:
             sc=(75, 48, 0),
         )
         _center(
-            self.surface, "Challenge Mode Unlocked!", self.fp_small, (252, 162, 65), 366
+            self.surface, "Enemies adapt - tougher every run!", self.fp_small, (252, 162, 65), 366
         )
         if int(t * 2) % 2 == 0:
             _center_outline(
                 self.surface,
-                "ENTER = Challenge   |   ESC = Menu",
+                "ENTER = Play Again   |   ESC = Menu",
                 self.fp_med,
                 C_GREEN,
                 428,

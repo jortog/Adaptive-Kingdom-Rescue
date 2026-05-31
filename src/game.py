@@ -66,7 +66,7 @@ class Game:
         self.AERIAL_SPAWN_CD = 2.5
         self._enemy_cap = 99
         self.selected_level = 0
-        self.settings = {"sound": True, "music": True, "ai_difficulty": "normal"}
+        self.settings = {"sound": True, "music": True}
         self._menu_cursor = 0
         self._pause_cursor = 0
         self._settings_cursor = 0
@@ -94,7 +94,8 @@ class Game:
                 level_width=self.level.pixel_width,
                 level_time=LEVEL_TIME_LIMIT,
             )
-            self._apply_ai()
+        # Count this attempt — difficulty ramps with the number of tries.
+        self.ai_ensemble.register_attempt()
         self.enemies = []
         for sp in self.level.get_enemy_spawns():
             self.enemies.append(
@@ -110,15 +111,13 @@ class Game:
         self._enemy_cap = len(self.enemies) + 2
         px, py = self.level.get_princess_position()
         self.princess = Princess(px, py)
-        rows = len(self.level.TILE_MAP)
-        # Rest power-ups ON the ground so they never embed in a floating platform
-        # (platforms live 2+ rows up). PowerUp is TILE_SIZE-4 tall.
-        ground_top = (rows - 1) * TILE_SIZE
-        pu_y = ground_top - (TILE_SIZE - 4)
+        # Random but reachable: each power-up rests on the ground or on top of a
+        # reachable platform, re-rolled per attempt like the platforms.
         self.powerups = [
-            PowerUp(6 * TILE_SIZE, pu_y, "mushroom"),
-            PowerUp(14 * TILE_SIZE, pu_y, "mushroom"),
-            PowerUp(20 * TILE_SIZE, pu_y, "star"),
+            PowerUp(x, y, kind)
+            for (x, y, kind) in self.level.get_powerup_spawns(
+                ["mushroom", "mushroom", "star"]
+            )
         ]
 
     def update_game(self, dt):
@@ -290,14 +289,8 @@ class Game:
                 lines = ai_debug_lines(recent, snap)
                 print("[AI] " + " | ".join(f"{lbl} {val}" for lbl, val in lines))
 
-    def _apply_ai(self):
-        if self.ai_ensemble:
-            self.ai_ensemble.set_difficulty(
-                self.settings.get("ai_difficulty") == "challenge"
-            )
-
     def _settings_key(self, event):
-        N = 5
+        N = 4
         if event.key == pygame.K_UP:
             self._settings_cursor = (self._settings_cursor - 1) % N
         elif event.key == pygame.K_DOWN:
@@ -312,14 +305,7 @@ class Game:
                     self.selected_level = (self.selected_level + 1) % NUM_LEVELS
                 elif event.key == pygame.K_LEFT:
                     self.selected_level = (self.selected_level - 1) % NUM_LEVELS
-            elif c == 2:  # AI Difficulty
-                self.settings["ai_difficulty"] = (
-                    "challenge"
-                    if self.settings.get("ai_difficulty", "normal") == "normal"
-                    else "normal"
-                )
-                self._apply_ai()
-            elif c == 4 and event.key == pygame.K_RETURN:  # Back
+            elif c == 3 and event.key == pygame.K_RETURN:  # Back (c == 2 is Controls)
                 self.scene = self._settings_from
         elif event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
             self.scene = self._settings_from
@@ -397,7 +383,9 @@ class Game:
                             self.load_level(self.gs.level_index)
                             self.scene = SCENE_GAME
                         elif self.scene == SCENE_WIN:
-                            self.gs.challenge_mode = True
+                            # Replay from the start; the AI is now more "trained"
+                            # (adaptation grew), so this run plays harder.
+                            self.gs.reset_session()
                             self.gs.level_index = 0
                             self.load_level(0)
                             self.scene = SCENE_GAME

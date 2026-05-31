@@ -120,6 +120,54 @@ class LevelBase:
             placed.append((c0, c1))
         return placed
 
+    def _platform_clusters(self):
+        """Contiguous PLATFORM tiles grouped per row as (row, c0, c1)."""
+        clusters = []
+        for r, row in enumerate(self.TILE_MAP):
+            c = 0
+            while c < len(row):
+                if row[c] == self.PLATFORM:
+                    c0 = c
+                    while c < len(row) and row[c] == self.PLATFORM:
+                        c += 1
+                    clusters.append((r, c0, c - 1))
+                else:
+                    c += 1
+        return clusters
+
+    def get_powerup_spawns(self, kinds):
+        """Random but always-reachable power-up positions, re-rolled per attempt
+        like the platforms. Each rests on the ground or on top of a (reachable)
+        platform. Returns [(x, y, kind), ...]."""
+        rows = len(self.TILE_MAP)
+        cols = len(self.TILE_MAP[0]) if rows else 0
+        ground_row = rows - 1
+        pu_size = TILE_SIZE - 4
+        # Candidate surfaces (column, y-resting-on-top).
+        slots = [
+            ((c0 + c1) // 2, r * TILE_SIZE - pu_size)
+            for (r, c0, c1) in self._platform_clusters()
+        ]
+        slots += [
+            (c, ground_row * TILE_SIZE - pu_size) for c in range(4, cols - 4, 3)
+        ]
+        self.rng.shuffle(slots)
+        spawns = []
+        chosen_cols = []
+        for kind in kinds:
+            # Prefer a slot spaced out from the ones already chosen.
+            pick = next(
+                (s for s in slots if all(abs(s[0] - c) >= 3 for c in chosen_cols)),
+                slots[0] if slots else None,
+            )
+            if pick is None:
+                continue
+            slots.remove(pick)
+            col, y = pick
+            chosen_cols.append(col)
+            spawns.append((col * TILE_SIZE, y, kind))
+        return spawns
+
     def draw_tiles(self, surface, camera_offset_x, camera_offset_y=0):
         draw_background(surface, camera_offset_x)
         for row_idx, row in enumerate(self.TILE_MAP):

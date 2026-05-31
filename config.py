@@ -72,13 +72,16 @@ DT_WEIGHT = 0.5
 RNN_WEIGHT = 0.5
 
 # Adaptive difficulty
-# Per-level starting pressure (0..1). Early levels start easy.
-DIFFICULTY_LEVEL_BASE = [0.12, 0.30, 0.48]
+# Per-level base pressure (0..1) before any tries. Kept very low so the first
+# several attempts are really easy (enemies barely chase).
+DIFFICULTY_LEVEL_BASE = [0.05, 0.12, 0.20]
 # Seconds at the start of every level where enemies stay calmer (breathing room).
 DIFFICULTY_WARMUP_TIME = 12.0
-# Each completed level nudges baseline pressure up ("the AI learns"), up to a cap.
-DIFFICULTY_ADAPT_STEP = 0.06
-DIFFICULTY_ADAPT_MAX = 0.36
+# Difficulty ramps with the number of TRIES (attempts) the player has made, so it
+# climbs even if the player keeps dying/retrying. Peaks after this many tries.
+DIFFICULTY_TRIES_FULL = 16
+# How much the tries-progress adds on top of the per-level base at the peak.
+DIFFICULTY_PROGRESS_MAX = 0.85
 
 # Action indices
 ACTION_IDLE = 0
@@ -125,4 +128,4 @@ DT_BASELINE_MODEL_PATH = os.path.join(BASELINE_MODELS_DIR, "decision_tree.pkl")
 
 RNN_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "rnn_predictor.pt")
 DT_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "decision_tree.pkl")
-ADAPTATION_PATH = os.path.join(RUNTIME_MODELS_DIR, "adaptation.json")
+PROGRESS_PATH = os.path.join(RUNTIME_MODELS_DIR, "progress.json")

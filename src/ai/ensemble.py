@@ -15,9 +15,9 @@ from config import (
     STRAT_RETREAT,
     DIFFICULTY_LEVEL_BASE,
     DIFFICULTY_WARMUP_TIME,
-    DIFFICULTY_ADAPT_STEP,
-    DIFFICULTY_ADAPT_MAX,
-    ADAPTATION_PATH,
+    DIFFICULTY_TRIES_FULL,
+    DIFFICULTY_PROGRESS_MAX,
+    PROGRESS_PATH,
 )
 from src.ai.decision_tree import DecisionTreeAI
 from src.ai.rnn_predictor import RNNPredictor
@@ -36,10 +36,6 @@ PLAYER_ACTION_TO_STRAT = {
 
 
 class AIEnsemble:
-    # Strategies that get amplified when challenge (aggressive) mode is on.
-    AGGRESSIVE_STRATS = (STRAT_CHASE, STRAT_AMBUSH)
-    AGGRESSION_BOOST = 1.5
-
     def __init__(self, level_width=5000, level_time=90.0):
         self.dt_ai = DecisionTreeAI()
         self.rnn = RNNPredictor()
@@ -49,36 +45,35 @@ class AIEnsemble:
         self.rnn_pred_action = ACTION_IDLE
         self.last_fused_probs = np.zeros(STRAT_COUNT, dtype=np.float32)
         self.last_command = STRAT_PATROL
-        self.aggressive = False
         self._dt_examples = []
-        # How much this player has "trained" the AI (completed levels). Persisted
-        # so difficulty keeps creeping up across sessions.
-        self.adaptation = self._load_adaptation()
+        # Number of tries (attempts) the player has made. Persisted so difficulty
+        # keeps creeping up across sessions — even through deaths/retries.
+        self.tries = self._load_tries()
         # Set each frame by pre_frame().
         self._difficulty = 0.5
         self._aggro_budget = 1
 
-    def set_difficulty(self, challenge):
-        """When challenge mode is on, enemies bias toward aggressive strategies."""
-        self.aggressive = bool(challenge)
-
     def compute_difficulty(self, level_index, level_elapsed):
-        """0..1 pressure scalar: easy early levels, a calm warmup at the start of
-        every level, rising as the player completes more levels."""
+        """0..1 pressure scalar: really easy for the first several tries, a calm
+        warmup at the start of every level, ramping up with the number of tries
+        the player has made (so it climbs even through deaths/retries)."""
         idx = max(0, min(int(level_index), len(DIFFICULTY_LEVEL_BASE) - 1))
         base = DIFFICULTY_LEVEL_BASE[idx]
-        adapt = min(self.adaptation * DIFFICULTY_ADAPT_STEP, DIFFICULTY_ADAPT_MAX)
+        progress = min(self.tries / DIFFICULTY_TRIES_FULL, 1.0)
         warm = 0.4 + 0.6 * min(level_elapsed / DIFFICULTY_WARMUP_TIME, 1.0)
-        d = (base + adapt) * warm
-        if self.aggressive:
-            d += 0.2
+        d = (base + progress * DIFFICULTY_PROGRESS_MAX) * warm
         return max(0.0, min(d, 1.0))
+
+    def register_attempt(self):
+        """Count one try (a level attempt). Drives the difficulty ramp."""
+        self.tries += 1
 
     def pre_frame(self, dt, action_history, difficulty=0.5):
         """Call ONCE per frame. Shared values for all enemies."""
         self._difficulty = max(0.0, min(difficulty, 1.0))
-        # 1 enemy presses when easy, up to 3 when hardest — never a full swarm.
-        self._aggro_budget = 1 + int(self._difficulty * 2 + 0.5)
+        # 1 enemy presses through the whole basic range, 2 once trained, 3 only
+        # at peak adaptation — never a full swarm.
+        self._aggro_budget = 1 + int(self._difficulty * 2 + 1e-6)
         self._rnn_probs = self.rnn.tick(dt, action_history)
         self.rnn_confidence = float(np.max(self._rnn_probs))
         self.rnn_pred_action = int(np.argmax(self._rnn_probs))
@@ -117,9 +112,6 @@ class AIEnsemble:
         for s in PRESSURE_STRATS:
             fused[s] *= aggro_scale
         fused[STRAT_PATROL] *= 1.0 + 0.5 * (1.0 - d)
-        if self.aggressive:
-            for s in self.AGGRESSIVE_STRATS:
-                fused[s] *= self.AGGRESSION_BOOST
         fused /= fused.sum() + 1e-8
         intended = int(np.argmax(fused))
         self.last_fused_probs = fused
@@ -159,26 +151,25 @@ class AIEnsemble:
         self.rnn.fine_tune(seqs)
         self.dt_ai.update_from_examples(self._dt_examples)
         self._dt_examples.clear()
-        self.adaptation += 1
 
     def save_all(self):
         self.dt_ai.save()
         self.rnn.save()
-        self._save_adaptation()
+        self._save_tries()
 
-    def _load_adaptation(self):
+    def _load_tries(self):
         try:
-            if os.path.exists(ADAPTATION_PATH):
-                with open(ADAPTATION_PATH) as f:
-                    return max(0, int(json.load(f).get("adaptation", 0)))
+            if os.path.exists(PROGRESS_PATH):
+                with open(PROGRESS_PATH) as f:
+                    return max(0, int(json.load(f).get("tries", 0)))
         except Exception:
             pass
         return 0
 
-    def _save_adaptation(self):
+    def _save_tries(self):
         try:
-            os.makedirs(os.path.dirname(ADAPTATION_PATH), exist_ok=True)
-            with open(ADAPTATION_PATH, "w") as f:
-                json.dump({"adaptation": self.adaptation}, f)
+            os.makedirs(os.path.dirname(PROGRESS_PATH), exist_ok=True)
+            with open(PROGRESS_PATH, "w") as f:
+                json.dump({"tries": self.tries}, f)
         except Exception:
             pass
