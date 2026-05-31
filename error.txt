@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+pygame 2.6.1 (SDL 2.28.4, Python 3.11.2)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+  File "C:\Users\JR\Downloads\Adaptive-Kingdom-Rescue\main.py", line 11, in <module>
+    from src.ai.ensemble import AIEnsemble
+  File "C:\Users\JR\Downloads\Adaptive-Kingdom-Rescue\src\ai\ensemble.py", line 9, in <module>
+    from src.ai.ppo_agent import PPOAgent
+  File "C:\Users\JR\Downloads\Adaptive-Kingdom-Rescue\src\ai\ppo_agent.py", line 5, in <module>
+    from stable_baselines3 import PPO as SB3PPO
+ValueError: source code string cannot contain null bytes

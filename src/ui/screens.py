@@ -420,9 +420,9 @@ class ScreenManager:
         self.surface.blit(sp, (sx, sy))
 
         for d in range(3, 0, -1):
-            scsh = self.fp_large.render(f"SCORE {score:07d}", True, (60,40,0))
+            scsh = self.fp_large.render(f"SCORE {score}", True, (60,40,0))
             self.surface.blit(scsh, (SCREEN_WIDTH//2-scsh.get_width()//2+d, sy+22+d))
-        sci = self.fp_large.render(f"SCORE {score:07d}", True, C_GOLD)
+        sci = self.fp_large.render(f"SCORE {score}", True, C_GOLD)
         self.surface.blit(sci, (SCREEN_WIDTH//2-sci.get_width()//2, sy+22))
 
         for d in range(2, 0, -1):
@@ -455,7 +455,7 @@ class ScreenManager:
         _center(self.surface,"The princess still waits...",self.fp_small,C_DIM,218)
 
        
-        _center_outline(self.surface,f"SCORE  {score:07d}",self.fp_large,C_GOLD,265,n=2,sc=(75,48,0))
+        _center_outline(self.surface,f"SCORE  {score}",self.fp_large,C_GOLD,265,n=2,sc=(75,48,0))
         _center(self.surface,"The enemy has memorized your tactics.",self.fp_small,(198,118,75),308)
         if int(t*2)%2==0:
             _center_outline(self.surface,"ENTER to retry   |   ESC to quit",self.fp_med,C_CREAM,388,n=2,sc=C_BLACK)
@@ -480,7 +480,7 @@ class ScreenManager:
 
        
         _center(self.surface,"The Kingdom is Saved!",self.fp_small,(110,245,110),304)
-        _center_outline(self.surface,f"FINAL  {score:07d}",self.fp_large,C_GOLD,326,n=2,sc=(75,48,0))
+        _center_outline(self.surface,f"FINAL  {score}",self.fp_large,C_GOLD,326,n=2,sc=(75,48,0))
         _center(self.surface,"Challenge Mode Unlocked!",self.fp_small,(252,162,65),366)
         if int(t*2)%2==0:
             _center_outline(self.surface,"ENTER = Challenge   |   ESC = Menu",self.fp_med,C_GREEN,428,n=2,sc=(0,55,0))

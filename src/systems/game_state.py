@@ -11,6 +11,7 @@ class GameState:
     def reset_session(self):
         self.lives           = PLAYER_START_LIVES
         self.score           = 0
+        self.enemies_defeated_total = 0
         self.level_index     = 0
         self.total_attempts  = 0
         self.challenge_mode  = False

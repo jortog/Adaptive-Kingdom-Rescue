@@ -43,8 +43,8 @@ ENEMY_GROUND_WIDTH    = 34
 ENEMY_GROUND_HEIGHT   = 34
 ENEMY_FLYING_WIDTH    = 42
 ENEMY_FLYING_HEIGHT   = 24
-ENEMY_PATROL_SPEED    = 80
-ENEMY_CHASE_SPEED     = 160
+ENEMY_PATROL_SPEED = 80
+ENEMY_CHASE_SPEED = 280
 ENEMY_STOMP_KILL_ZONE = 0.10
 
 # ─── LEVEL ────────────────────────────────────────────────────────────────────
@@ -104,3 +104,12 @@ FONTS_DIR      = os.path.join(ASSETS_DIR, "fonts")
 RNN_MODEL_PATH = os.path.join(MODELS_DIR, "rnn_predictor.pt")
 PPO_MODEL_PATH = os.path.join(MODELS_DIR, "ppo_agent.zip")
 DT_MODEL_PATH  = os.path.join(MODELS_DIR, "decision_tree.pkl")
+
+# ── PPO settings ──
+PPO_LEARNING_RATE = 3e-4
+PPO_GAMMA         = 0.99
+PPO_CLIP_RANGE    = 0.
+
+import os
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+SCORE_AIRBORNE_DEFEAT_BONUS = 50
