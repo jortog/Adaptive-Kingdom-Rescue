@@ -7,7 +7,7 @@ from config import TILE_SIZE
 class Princess(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
-        # Keep collision box one tile tall, aligned to ground like before
+        # One-tile collision box
         self.rect = pygame.Rect(x, y, TILE_SIZE - 4, TILE_SIZE)
         self.image = pygame.Surface((TILE_SIZE - 4, TILE_SIZE), pygame.SRCALPHA)
         self._bob = 0.0
@@ -16,7 +16,7 @@ class Princess(pygame.sprite.Sprite):
         self._bob += dt * 2.5
 
     def draw(self, surface, camera_offset_x, world_y_offset=0):
-        # Draw region is taller than collision box; anchor sprite bottom to rect bottom
+        # Taller sprite anchored to collision box
         DRAW_H = TILE_SIZE + 14
         rx = self.rect.x - camera_offset_x
         ry = self.rect.bottom + world_y_offset - DRAW_H + int(math.sin(self._bob) * 2)

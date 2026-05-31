@@ -13,7 +13,9 @@ class GameState:
         self.level_index = 0
         self.level_time_elapsed = 0.0
         self.damage_taken_this_level = 0
+        # Long-term action log used by the RNN to learn player habits
         self.action_history = deque(maxlen=AI_ACTION_BUFFER_LEN)
+        # Recent-window counts feed DT/PPO features such as jump/run frequency
         self.action_freq_window = []
         self.action_freq_timestamps = []
 
@@ -24,6 +26,7 @@ class GameState:
         self.action_freq_timestamps.clear()
 
     def record_action(self, action_index: int):
+        """Record one player action for AI prediction and pattern counts."""
         self.action_history.append(action_index)
         now = time.time()
         self.action_freq_window.append(action_index)
@@ -34,11 +37,13 @@ class GameState:
             self.action_freq_window.pop(0)
 
     def get_action_history_padded(self) -> list:
+        """Return fixed-length action history for the RNN."""
         hist = list(self.action_history)[-AI_ACTION_HISTORY_LEN:]
         pad_len = AI_ACTION_HISTORY_LEN - len(hist)
         return [0] * pad_len + hist
 
     def count_recent_action(self, action_index: int) -> int:
+        """Count one action type in the current 10-second feature window."""
         return self.action_freq_window.count(action_index)
 
     def unique_actions_last_10s(self) -> int:

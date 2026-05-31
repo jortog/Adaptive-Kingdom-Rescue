@@ -68,8 +68,7 @@ class Game:
         self._max_level_progress = 0.0
         self._aerial_spawn_cd = 0.0
         self.AERIAL_SPAWN_CD = 2.5
-        # Seconds the player has spent camping on a high platform (drives the
-        # "chase me up there / spawn aerials" response).
+        # Time spent camping above ground; feeds anti-camping AI
         self._elevated_time = 0.0
         self._enemy_cap = 99
         self.selected_level = 0
@@ -86,7 +85,7 @@ class Game:
 
     def load_level(self, idx):
         idx = min(max(idx, 0), NUM_LEVELS - 1)
-        # Fresh seed each load → platform layout varies every attempt.
+        # Fresh seed means a new reachable layout each attempt
         self.level = LEVELS[idx](seed=random.randrange(1 << 30))
         self.gs.reset_level()
         self.time_remaining = LEVEL_TIME_LIMIT
@@ -102,7 +101,7 @@ class Game:
                 level_width=self.level.pixel_width,
                 level_time=LEVEL_TIME_LIMIT,
             )
-        # Count this attempt — difficulty ramps with the number of tries.
+        # Each attempt increases the AI difficulty ramp
         self.ai_ensemble.register_attempt()
         self.enemies = []
         for sp in self.level.get_enemy_spawns():
@@ -115,16 +114,12 @@ class Game:
                     patrol_right=sp.get("patrol_right"),
                 )
             )
-        # Cap on total live enemies so aerial spawns can't snowball into a swarm.
+        # Cap live enemies so learned aerial pressure cannot snowball
         self._enemy_cap = len(self.enemies) + 2
         self.ai_ensemble.ppo.max_enemies = max(self._enemy_cap, 1)
         px, py = self.level.get_princess_position()
         self.princess = Princess(px, py)
-        # Random but reachable: each power-up rests on the ground or on top of a
-        # reachable platform, re-rolled per attempt like the platforms. The star
-        # (full invincibility) gets rarer as difficulty/level climbs so the player
-        # can't grab one and run straight through everyone; otherwise it's a
-        # milder shield.
+        # Power-ups are reachable; stars become rarer as AI pressure rises
         prog = self.ai_ensemble.difficulty_progress()
         star_chance = max(
             STAR_MIN_CHANCE, 1.0 - prog - STAR_LEVEL_PENALTY * self.gs.level_index
@@ -160,10 +155,7 @@ class Game:
         self.ai_ensemble.ppo.observe(state, action, reward, next_state, done)
 
     def _lose_life(self, ppo_state, ppo_action, frame_reward):
-        """Shared handling when the player loses a life: bookkeeping, death SFX,
-        game-over check, the terminal PPO transition, and a level reload if any
-        lives remain. Callers apply situational reward shaping first, then return
-        immediately after calling this."""
+        """Handle life loss and record the terminal PPO transition."""
         self.gs.lives -= 1
         self.gs.damage_taken_this_level += 1
         frame_reward += 0.75
@@ -184,9 +176,7 @@ class Game:
         difficulty = self.ai_ensemble.compute_difficulty(
             self.gs.level_index, self.gs.level_time_elapsed
         )
-        # Track camping on a high platform → draw enemies up after the player. We
-        # key off sustained elevation (not on_ground, which flickers while resting
-        # on a platform); a brief jump arc never lingers long enough to count.
+        # Sustained elevation teaches the AI to send flyers and vertical chasers
         ground_top = self.level.pixel_height - TILE_SIZE
         elevation_tiles = max(0.0, (ground_top - self.player.rect.bottom) / TILE_SIZE)
         if elevation_tiles >= 1.5:
@@ -200,8 +190,7 @@ class Game:
         frame_reward = dt
         player_jumped = self.player.vel_y < -300 and not self.player.on_ground
         spawn_requested = False
-        # Closest enemies claim the limited aggression budget first, so the
-        # player is pressured from nearby — never swarmed from every side at once.
+        # Nearby enemies spend the limited aggression budget first
         ordered = sorted(
             (e for e in self.enemies if e.alive),
             key=lambda e: abs(e.rect.centerx - self.player.rect.centerx),
@@ -224,9 +213,7 @@ class Game:
             e.update(dt, self.player.rect, self.level.platforms)
         self._aerial_spawn_cd -= dt
         alive_count = sum(1 for e in self.enemies if e.alive)
-        # Normal aerial spawns are gated behind difficulty + jumpiness, but a
-        # player camping on a high platform gets a flyer sent up regardless so
-        # they can't just park out of reach.
+        # Repeated jumping or camping can trigger a learned aerial counter
         camping_high = self._elevated_time >= 1.2
         if (
             spawn_requested
@@ -265,7 +252,7 @@ class Game:
                 old_size = self.player.size_level
                 old_shields = self.player.shield_count
                 if self.player.take_damage():
-                    # Extra penalty for dying in the opening seconds.
+                    # Early deaths reward enemy pressure more
                     if self.gs.level_time_elapsed < 5.0:
                         frame_reward -= 0.5
                     self._lose_life(ppo_state, ppo_action, frame_reward)
@@ -444,8 +431,7 @@ class Game:
                             self.load_level(self.gs.level_index)
                             self.scene = SCENE_GAME
                         elif self.scene == SCENE_WIN:
-                            # Replay from the start; the AI is now more "trained"
-                            # (adaptation grew), so this run plays harder.
+                            # Replay keeps learned AI pressure
                             self.gs.reset_session()
                             self.gs.level_index = 0
                             self.load_level(0)

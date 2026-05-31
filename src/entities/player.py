@@ -13,7 +13,7 @@ from config import (
     ACTION_RUN,
 )
 
-# Keys that trigger / hold a jump.
+# Jump input keys
 JUMP_KEYS = (pygame.K_z, pygame.K_SPACE, pygame.K_UP, pygame.K_w)
 
 
@@ -188,7 +188,7 @@ class Player(pygame.sprite.Sprite):
         elif kind == "feather":
             self.can_double_jump = True
 
-    # Draw: armored knight
+    # Draw armored knight
     def draw(self, surface, camera_offset_x, world_y_offset=0):
         import math
 
@@ -200,17 +200,17 @@ class Player(pygame.sprite.Sprite):
         cx = rx + w // 2
 
         star_flash = self.star_timer > 0 and int(_time.time() * 10) % 2 == 0
-        # Steel armor palette
+        # Armor palette
         steel_d = (88, 96, 108) if not star_flash else (210, 180, 40)
         steel_m = (140, 150, 164) if not star_flash else (255, 220, 80)
         steel_l = (190, 198, 210) if not star_flash else (255, 245, 160)
         horn = (235, 238, 245)
         leather = (96, 62, 32)
 
-        # leg bob when walking
+        # Walk bob
         leg_off = int(math.sin(self._walk_phase) * 3) if self.on_ground else 0
 
-        # Legs / boots (armored greaves)
+        # Legs
         pygame.draw.rect(
             surface, steel_d, (cx - 9, ry + h - 12 + leg_off, 7, 12), border_radius=2
         )
@@ -224,7 +224,7 @@ class Player(pygame.sprite.Sprite):
             surface, steel_m, (cx + 2, ry + h - 12 - leg_off, 7, 4), border_radius=2
         )
 
-        # Body / cuirass
+        # Body
         body = pygame.Rect(cx - 11, ry + h // 3, 22, h // 2)
         pygame.draw.rect(surface, steel_m, body, border_radius=4)
         pygame.draw.rect(
@@ -238,7 +238,7 @@ class Player(pygame.sprite.Sprite):
         pygame.draw.rect(surface, leather, (body.x, body.bottom - 5, body.width, 5))
         pygame.draw.rect(surface, (210, 180, 60), (cx - 3, body.bottom - 5, 6, 5))
 
-        # Shield (on back-facing arm side)
+        # Shield
         sh_x = cx - 16 * flip
         pygame.draw.ellipse(surface, steel_d, (sh_x - 7, ry + h // 2 - 6, 14, 22))
         pygame.draw.ellipse(surface, steel_l, (sh_x - 5, ry + h // 2 - 4, 10, 18))
@@ -246,7 +246,7 @@ class Player(pygame.sprite.Sprite):
             surface, steel_d, (sh_x, ry + h // 2 - 4), (sh_x, ry + h // 2 + 13), 1
         )
 
-        # Sword (front arm)
+        # Sword
         sw_x = cx + 13 * flip
         pygame.draw.line(
             surface, steel_l, (sw_x, ry + h // 2 + 6), (sw_x, ry + h // 4), 3
@@ -269,7 +269,7 @@ class Player(pygame.sprite.Sprite):
             (helm.x + 2, helm.y + 1, helm.width - 4, 4),
             border_radius=3,
         )
-        # Visor slit
+        # Visor
         pygame.draw.rect(
             surface, (20, 24, 30), (helm.x + 3, helm.centery, helm.width - 6, 3)
         )

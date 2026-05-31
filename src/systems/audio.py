@@ -4,12 +4,7 @@ from config import SOUNDS_DIR
 
 
 class AudioManager:
-    """
-    Central audio controller.
-    - SFX: event-driven one-shot sounds (coin, defeat, death, win).
-    - BGM: looping background music with independent on/off toggle.
-    Missing files are skipped silently so the game never crashes.
-    """
+    """Central audio controller for SFX and BGM."""
 
     def __init__(self):
         self.sfx_enabled = True
@@ -19,7 +14,7 @@ class AudioManager:
         self._sfx_volume = 0.6
         self._music_volume = 0.5
 
-        # Map logical event name -> candidate filenames (first that exists wins)
+        # First existing filename wins for each sound event
         sfx_files = {
             "coin": ["coin.wav", "coin.mp3", "coin.ogg", "pickup.wav"],
             "defeat": ["defeat.wav", "stomp.wav", "enemy_defeat.wav", "defeat.mp3"],
@@ -45,7 +40,6 @@ class AudioManager:
                     continue
         return None
 
-    # SFX
     def play_sfx(self, name):
         if not self.sfx_enabled:
             return
@@ -74,9 +68,8 @@ class AudioManager:
     def play_power(self):
         self.play_sfx("power")
 
-    # BGM
     def play_bgm(self, filename, loop=True, start_pos=0.0):
-        """Load and play a looping music track if music is enabled."""
+        """Load and play music if enabled."""
         path = os.path.join(SOUNDS_DIR, filename)
         if not os.path.exists(path):
             self._current_bgm = None
@@ -103,7 +96,7 @@ class AudioManager:
             pass
 
     def set_music_enabled(self, enabled):
-        """Toggle BGM independently of SFX."""
+        """Toggle music without changing SFX."""
         self.music_enabled = enabled
         if not enabled:
             self.stop_bgm()

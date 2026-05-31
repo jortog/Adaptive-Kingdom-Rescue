@@ -1,9 +1,8 @@
-"""
-PPO reinforcement learning agent.
+"""PPO reinforcement-learning layer for long-term enemy strategy.
 
-The game feeds normalized state transitions into a small Gymnasium-compatible
-environment wrapper. Stable-Baselines3 PPO consumes those transitions during
-periodic updates and returns one of the strategic enemy commands.
+The game records normalized state transitions and rewards after important
+events. PPO learns which strategic command best slows or damages this player,
+then returns that command to the ensemble as one vote in the enemy decision.
 
 State space (8 floats, normalized [0, 1]):
   [0] level_timer_norm        - time elapsed / time limit
@@ -38,7 +37,7 @@ MAX_BUFFERED_TRANSITIONS = 2048
 
 
 class KingdomRescueEnv(gym.Env):
-    """Minimal environment shell backed by game-provided transitions."""
+    """Gymnasium shell backed by game-provided transitions."""
 
     metadata = {"render_modes": []}
 
@@ -78,7 +77,7 @@ class KingdomRescueEnv(gym.Env):
 
 
 class PPOAgent:
-    """Small wrapper around Stable-Baselines3 PPO."""
+    """Stable-Baselines3 PPO wrapper used by the AI ensemble."""
 
     def __init__(
         self,
@@ -111,6 +110,7 @@ class PPOAgent:
         player_route_y: float,
         level_height: float | None = None,
     ) -> np.ndarray:
+        """Convert live gameplay into normalized PPO features."""
         if level_height is None:
             route_norm = player_route_y - 1
         else:
@@ -130,6 +130,7 @@ class PPOAgent:
         )
 
     def get_action(self, state: np.ndarray) -> int:
+        """Sample a learned enemy strategy from the current state."""
         state = np.clip(np.asarray(state, dtype=np.float32), 0.0, 1.0)
         self.env.set_state(state)
         action, _ = self.model.predict(state, deterministic=False)
@@ -145,6 +146,7 @@ class PPOAgent:
         next_state: np.ndarray,
         done: bool,
     ):
+        """Store one transition so PPO can learn from player outcomes."""
         self._step_buffer.append((state, int(action), reward, next_state, done))
         if len(self._step_buffer) > MAX_BUFFERED_TRANSITIONS:
             self._step_buffer = self._step_buffer[-MAX_BUFFERED_TRANSITIONS:]
@@ -152,6 +154,7 @@ class PPOAgent:
         self.env.add_transition(next_state, reward, done)
 
     def tick(self, dt: float, state: np.ndarray) -> int:
+        """Return the current PPO action and periodically update the policy."""
         self.env.set_state(state)
         if not self._has_action:
             return self.get_action(state)

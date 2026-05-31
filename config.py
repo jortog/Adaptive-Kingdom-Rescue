@@ -71,25 +71,20 @@ RNN_WEIGHT = 0.3
 PPO_WEIGHT = 0.4
 
 # Adaptive difficulty
-# Per-level base pressure (0..1) before any tries. Kept very low so the first
-# several attempts are really easy (enemies barely chase).
+# Base enemy pressure before retry learning is applied
 DIFFICULTY_LEVEL_BASE = [0.05, 0.12, 0.20]
-# Seconds at the start of every level where enemies stay calmer (breathing room).
+# Start-of-level calm period
 DIFFICULTY_WARMUP_TIME = 12.0
-# Difficulty ramps with the number of TRIES (attempts) the player has made, so it
-# climbs even if the player keeps dying/retrying. Peaks after this many tries.
+# Retry count that reaches full adaptive pressure
 DIFFICULTY_TRIES_FULL = 16
-# How much the tries-progress adds on top of the per-level base at the peak.
+# Max pressure added by retry learning
 DIFFICULTY_PROGRESS_MAX = 0.85
 
-# Power-up rarity: the invincibility star gets rarer as difficulty climbs (and on
-# later levels) so the player can't just grab one and run straight through every
-# enemy to the princess. Below this floor it never drops further.
+# Star chance floor after adaptive rarity is applied
 STAR_MIN_CHANCE = 0.15
 STAR_LEVEL_PENALTY = 0.15
 
-# When the player camps on an elevated platform, enemies are drawn up after them
-# (more aerial spawns + vertical chasing). Seconds of camping to reach full bias.
+# Seconds of high-platform camping needed for full anti-camping bias
 ELEVATION_CAMP_FULL = 2.0
 
 # Action indices
@@ -122,8 +117,7 @@ STRAT_NAMES = [
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Baseline models are optional shipped defaults. Runtime models are local,
-# ignored saves that carry the player's adapted behavior across launches.
+# Runtime model files persist learned player behavior across launches
 BASELINE_MODELS_DIR = os.path.join(BASE_DIR, "data", "models")
 RUNTIME_MODELS_DIR = os.path.join(BASE_DIR, "data", "runtime_models")
 LOGS_DIR = os.path.join(BASE_DIR, "data", "logs")

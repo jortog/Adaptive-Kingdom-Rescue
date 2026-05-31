@@ -3,7 +3,7 @@ from config import SCREEN_WIDTH, ACTION_NAMES, STRAT_NAMES
 
 _FONT_PATH = "assets/fonts/SuperPixel-m2L8j.ttf"
 
-# Human-readable enemy response per strategy (for the AI demo overlay/log).
+# Enemy response text for the AI overlay/log
 STRAT_RESPONSE = {
     0: "Patrolling",
     1: "Chasing player",
@@ -14,7 +14,7 @@ STRAT_RESPONSE = {
     6: "Backing off",
 }
 
-# Detected-pattern label that drove the chosen strategy.
+# Player pattern label behind each strategy
 STRAT_RULE = {
     0: "No strong pattern",
     1: "Player nearby",
@@ -27,7 +27,7 @@ STRAT_RULE = {
 
 
 def ai_debug_lines(recent_actions, snapshot):
-    """Build the demo lines shared by the overlay and the console log."""
+    """Build live AI explanation lines for overlay and console output."""
     recent = [ACTION_NAMES[a] for a in recent_actions[-6:] if 0 <= a < len(ACTION_NAMES)]
     pred = snapshot.get("rnn_pred_action", 0)
     pred_name = ACTION_NAMES[pred] if 0 <= pred < len(ACTION_NAMES) else "?"
@@ -125,11 +125,11 @@ class HUD:
             surface, (0, 0, 0), (0, HUD_H - 1), (SCREEN_WIDTH, HUD_H - 1), 1
         )
 
-        # SCORE (left)
+        # Score
         _text3d(surface, "SCORE", self.fp_lbl, C_DIM, C_BLACK, 14, 5)
         _text3d(surface, f"{gs.score:07d}", self.fp_val, C_GOLD, C_GOLD_D, 12, 16)
 
-        # LEVEL (center)
+        # Level
         wlbl = self.fp_lbl.render("LEVEL", True, C_DIM)
         _text3d(
             surface,
@@ -153,7 +153,7 @@ class HUD:
             16,
         )
 
-        # LIVES
+        # Lives
         lx = SCREEN_WIDTH // 2 + 118
         _text3d(surface, "LIVES", self.fp_lbl, C_DIM, C_BLACK, lx, 5)
         for i in range(min(gs.lives, 5)):
@@ -163,7 +163,7 @@ class HUD:
                 surface, f"+{gs.lives - 5}", self.fp_lbl, C_RED, C_BLACK, lx + 92, 24
             )
 
-        # TIME (right)
+        # Time
         time_label = self.fp_lbl.render("TIME", True, C_DIM)
         time_label_x = SCREEN_WIDTH - time_label.get_width() - 18
         _text3d(surface, "TIME", self.fp_lbl, C_DIM, C_BLACK, time_label_x, 5)
@@ -197,7 +197,7 @@ class HUD:
             16,
         )
 
-        # Level progress bar
+        # Level progress
         bw, bh = 200, 5
         bx = SCREEN_WIDTH // 2 - bw // 2
         by = HUD_H - 10

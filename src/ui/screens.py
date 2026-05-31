@@ -461,19 +461,19 @@ class ScreenManager:
         _draw_moon(self.surface, SCREEN_WIDTH - 195, 108)
         _draw_fog(self.surface, t)
 
-        # Dark vignette overlay
+        # Vignette
         ov = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         ov.fill((0, 0, 0, 80))
         self.surface.blit(ov, (0, 0))
 
-        # 3D title plate
+        # Title plate
         bw, bh = 720, 110
         bx, by = SCREEN_WIDTH // 2 - bw // 2, 100
-        # Drop shadow
+        # Shadow
         sh = pygame.Surface((bw + 8, bh + 8), pygame.SRCALPHA)
         sh.fill((0, 0, 0, 140))
         self.surface.blit(sh, (bx + 6, by + 8))
-        # Panel base
+        # Panel
         pn = pygame.Surface((bw, bh), pygame.SRCALPHA)
         for yy in range(bh):
             tt = yy / bh
@@ -486,7 +486,7 @@ class ScreenManager:
         pygame.draw.line(pn, (60, 40, 0, 200), (4, bh - 3), (bw - 5, bh - 3), 1)
         self.surface.blit(pn, (bx, by))
 
-        # Title text with deep 3D extrusion
+        # Extruded title
         bob = int(math.sin(t * 2) * 3)
         for d in range(5, 0, -1):
             shimg = self.fp_title.render("LEVEL COMPLETE", True, (60, 40, 0))
@@ -497,7 +497,7 @@ class ScreenManager:
         ti = self.fp_title.render("LEVEL COMPLETE", True, C_GOLD)
         self.surface.blit(ti, (SCREEN_WIDTH // 2 - ti.get_width() // 2, by + 22 + bob))
 
-        # 3D score plate
+        # Score plate
         sw, sh2 = 360, 84
         sx, sy = SCREEN_WIDTH // 2 - sw // 2, 250
         shadow = pygame.Surface((sw + 6, sh2 + 6), pygame.SRCALPHA)
@@ -530,7 +530,7 @@ class ScreenManager:
         wi = self.fp_small.render(f"WORLD {level_index} CLEARED", True, (120, 255, 120))
         self.surface.blit(wi, (SCREEN_WIDTH // 2 - wi.get_width() // 2, sy + 58))
 
-        # Continue prompt (blinking, 3D)
+        # Blinking prompt
         if int(t * 2) % 2 == 0:
             py2 = 400
             for d in range(3, 0, -1):

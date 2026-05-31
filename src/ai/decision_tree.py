@@ -1,11 +1,9 @@
-"""
-Decision Tree AI Layer
-Uses scikit-learn's DecisionTreeClassifier wrapped with hand-crafted
-training examples that encode the 50 designer rules described in the proposal.
+"""Decision-tree AI layer for readable enemy behavior rules.
 
-Because we cannot wait for training data collection to start the game,
-we bootstrap the tree with synthetic rule-encoding samples and update
-it periodically as real gameplay data accumulates.
+The tree starts from synthetic examples that encode the designer rules, then
+re-fits after each level with real player-behavior examples collected by the
+ensemble. This keeps enemy decisions explainable while adapting to how the
+current player jumps, runs, retreats, or camps.
 """
 
 import numpy as np
@@ -26,19 +24,18 @@ from config import (
 
 
 class DecisionTreeAI:
-    """
-    Wraps a scikit-learn DecisionTreeClassifier.
+    """Wrap scikit-learn's DecisionTreeClassifier for strategy choices.
 
     Input features (7 values):
-        [0] distance_x          — horizontal pixel distance to player
-        [1] distance_y          — vertical pixel distance to player (neg = player above)
-        [2] player_vel_x        — player horizontal velocity (px/s)
-        [3] jump_freq_10s       — number of jumps in last 10 seconds
-        [4] run_freq_10s        — number of run actions in last 10 seconds
-        [5] enemy_count         — active enemies on screen
-        [6] player_health       — player size_level (1 or 2)
+        [0] distance_x        - horizontal distance to player
+        [1] distance_y        - vertical distance; negative means player is above
+        [2] player_vel_x      - player horizontal velocity
+        [3] jump_freq_10s     - jumps in the last 10 seconds
+        [4] run_freq_10s      - run actions in the last 10 seconds
+        [5] enemy_count       - active enemies
+        [6] player_health     - player size level
 
-    Output: integer in [0, STRAT_COUNT)
+    Output: enemy strategy id in [0, STRAT_COUNT).
     """
 
     FEATURE_COUNT = 7
@@ -50,15 +47,13 @@ class DecisionTreeAI:
         self._bootstrap()
         self.load()
 
-    # Bootstrap with synthetic rule-encoding data
     def _bootstrap(self):
         """
-        Encode the designer's 50 rules as synthetic training samples.
-        Each sample is one scenario → intended action pair.
+        Create starting samples that map player patterns to enemy responses.
         """
         X, y = [], []
 
-        # Rule: close + player jumping → spawn aerial
+        # Jumping near enemies teaches aerial pressure
         for _ in range(80):
             X.append(
                 [
@@ -73,7 +68,7 @@ class DecisionTreeAI:
             )
             y.append(STRAT_SPAWN_AERIAL)
 
-        # Rule: very close → chase
+        # Close players should be chased
         for _ in range(100):
             X.append(
                 [
@@ -88,7 +83,7 @@ class DecisionTreeAI:
             )
             y.append(STRAT_CHASE)
 
-        # Rule: fast-running player → ambush
+        # Fast runners get ambushed
         for _ in range(80):
             X.append(
                 [
@@ -103,7 +98,7 @@ class DecisionTreeAI:
             )
             y.append(STRAT_AMBUSH)
 
-        # Rule: far + player not moving much → patrol
+        # Quiet distant players keep enemies patrolling
         for _ in range(100):
             X.append(
                 [
@@ -118,7 +113,7 @@ class DecisionTreeAI:
             )
             y.append(STRAT_PATROL)
 
-        # Rule: many enemies alive → block upper path
+        # Crowded screens shift enemies into route blocking
         for _ in range(60):
             X.append(
                 [
@@ -133,7 +128,7 @@ class DecisionTreeAI:
             )
             y.append(STRAT_BLOCK_UPPER)
 
-        # Rule: player low health → aggressive chase
+        # Vulnerable players receive stronger chase pressure
         for _ in range(60):
             X.append(
                 [
@@ -148,7 +143,7 @@ class DecisionTreeAI:
             )
             y.append(STRAT_CHASE)
 
-        # Rule: enemy outnumbered → retreat
+        # Low enemy count can produce retreat behavior
         for _ in range(40):
             X.append(
                 [
@@ -170,18 +165,14 @@ class DecisionTreeAI:
         self.model.fit(X, y)
 
     def predict_proba(self, features: np.ndarray) -> np.ndarray:
-        """
-        Returns probability distribution over STRAT_COUNT actions.
-        Shape: (STRAT_COUNT,)
-        """
+        """Return a probability distribution over all enemy strategies."""
         proba = self.model.predict_proba(features.reshape(1, -1))[0]
-        # Pad to STRAT_COUNT if some classes were missing in training
+        # Keep output shape stable even if training omitted a class
         full = np.zeros(STRAT_COUNT, dtype=np.float32)
         for i, cls in enumerate(self.model.classes_):
             full[cls] = proba[i]
         return full
 
-    # Build feature vector from game state
     @staticmethod
     def build_features(
         enemy_rect,
@@ -193,7 +184,7 @@ class DecisionTreeAI:
         player_health: int,
     ) -> np.ndarray:
         dist_x = abs(player_rect.centerx - enemy_rect.centerx)
-        dist_y = player_rect.centery - enemy_rect.centery  # neg = player above
+        dist_y = player_rect.centery - enemy_rect.centery  # negative means above
         return np.array(
             [
                 dist_x,
@@ -207,8 +198,8 @@ class DecisionTreeAI:
             dtype=np.float32,
         )
 
-    # Persistence
     def update_from_examples(self, examples: list[tuple[np.ndarray, int]]):
+        """Re-fit with baseline rules plus new player-specific examples."""
         if not examples:
             return
         X_new = np.array([features for features, _ in examples], dtype=np.float32)

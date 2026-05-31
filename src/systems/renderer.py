@@ -57,7 +57,7 @@ def _build_sky():
         sy = _r.randint(0, int(SCREEN_HEIGHT * 0.6))
         c = _r.randint(150, 255)
         pygame.draw.circle(surf, (c, c, min(255, c + 20)), (sx, sy), _r.randint(1, 2))
-    # Moon upper-right
+    # Moon
     mx, my = int(SCREEN_WIDTH * 0.82), int(SCREEN_HEIGHT * 0.18)
     for i in range(8, 0, -1):
         gl = pygame.Surface((i * 54, i * 54), pygame.SRCALPHA)

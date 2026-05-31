@@ -1,7 +1,4 @@
-"""
-Scoring system with AI-driven dynamic adjustments.
-All modifiers are explained in config.py comments and the proposal Section 2.2.B.
-"""
+"""Scoring with adaptive modifiers tied to repeated player behavior."""
 
 import time
 from config import (
@@ -38,7 +35,7 @@ class ScoringSystem:
         if was_airborne:
             pts += SCORE_DEFEAT_JUMP_BONUS
 
-        # AI adjustment: diminishing returns after 5 same-type kills
+        # Repeated same-type kills get diminishing returns
         if streak > 5:
             reduction = min(0.5, 0.1 * (streak - 5))
             pts = int(pts * (1.0 - reduction))
@@ -56,7 +53,7 @@ class ScoringSystem:
         }
         pts = base_map.get(kind, 0)
 
-        # AI adjustment: same power-up 3× in 30s = 0 points
+        # Third same power-up in 30 seconds gives no points
         now = time.time()
         times = self._powerup_recent.get(kind, [])
         times = [t for t in times if now - t < 30]
@@ -73,7 +70,7 @@ class ScoringSystem:
         pts += max(0, int(time_remaining * SCORE_TIME_BONUS_RATE))
         if took_no_damage:
             pts += SCORE_NO_DAMAGE_BONUS
-        # Variety bonus
+        # Reward varied actions
         unique = self.gs.unique_actions_last_10s()
         pts += min(unique * SCORE_VARIETY_BONUS, 200)
         self._add(pts)
@@ -82,7 +79,7 @@ class ScoringSystem:
     def _add(self, pts: int):
         self.score += pts
         self.gs.score = self.score
-        # Extra life threshold
+        # Extra lives by score threshold
         while self.score >= self._next_life_score and self.gs.lives < PLAYER_MAX_LIVES:
             self.gs.lives += 1
             self._next_life_score += SCORE_EXTRA_LIFE_THRESHOLD

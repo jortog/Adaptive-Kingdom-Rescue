@@ -24,8 +24,7 @@ from src.ai.decision_tree import DecisionTreeAI
 from src.ai.ppo_agent import PPOAgent
 from src.ai.rnn_predictor import RNNPredictor
 
-# Strategies that actively close in on the player. Only a limited number of
-# enemies may run these at once (the "aggression budget").
+# Pressure strategies share an aggression budget so adaptation feels smart, not unfair
 PRESSURE_STRATS = (STRAT_CHASE, STRAT_AMBUSH, STRAT_SPAWN_AERIAL)
 
 PLAYER_ACTION_TO_STRAT = {
@@ -51,19 +50,16 @@ class AIEnsemble:
         self.last_fused_probs = np.zeros(STRAT_COUNT, dtype=np.float32)
         self.last_command = STRAT_PATROL
         self._dt_examples = []
-        # Number of tries (attempts) the player has made. Persisted so difficulty
-        # keeps creeping up across sessions — even through deaths/retries.
+        # Persisted attempts let the AI increase pressure across retries/sessions
         self.tries = self._load_tries()
-        # Set each frame by pre_frame().
+        # Frame-level AI state shared by all enemies
         self._difficulty = 0.5
         self._aggro_budget = 1
-        # 0..1: how hard to chase the player up onto a high platform they camp on.
+        # 0..1 anti-camping signal for high-platform players
         self._aerial_bias = 0.0
 
     def compute_difficulty(self, level_index, level_elapsed):
-        """0..1 pressure scalar: really easy for the first several tries, a calm
-        warmup at the start of every level, ramping up with the number of tries
-        the player has made (so it climbs even through deaths/retries)."""
+        """Return 0..1 pressure from level, warmup time, and player attempts."""
         idx = max(0, min(int(level_index), len(DIFFICULTY_LEVEL_BASE) - 1))
         base = DIFFICULTY_LEVEL_BASE[idx]
         progress = min(self.tries / DIFFICULTY_TRIES_FULL, 1.0)
@@ -72,19 +68,18 @@ class AIEnsemble:
         return max(0.0, min(d, 1.0))
 
     def register_attempt(self):
-        """Count one try (a level attempt). Drives the difficulty ramp."""
+        """Count one level attempt for adaptive difficulty."""
         self.tries += 1
 
     def difficulty_progress(self):
-        """0..1 fraction of the way to peak difficulty, by number of tries."""
+        """Return progress toward max retry-based difficulty."""
         return min(self.tries / DIFFICULTY_TRIES_FULL, 1.0)
 
     def pre_frame(self, dt, action_history, ppo_state, difficulty=0.5, aerial_bias=0.0):
-        """Call ONCE per frame. Shared values for all enemies."""
+        """Update shared AI predictions once per frame before enemies query commands."""
         self._difficulty = max(0.0, min(difficulty, 1.0))
         self._aerial_bias = max(0.0, min(aerial_bias, 1.0))
-        # 1 enemy presses through the whole basic range, 2 once trained, 3 only
-        # at peak adaptation — never a full swarm.
+        # More learned pressure allows more attackers, capped to prevent swarms
         self._aggro_budget = 1 + int(self._difficulty * 2 + 1e-6)
         self._rnn_probs = self.rnn.tick(dt, action_history)
         self._ppo_action = self.ppo.tick(dt, ppo_state)
@@ -103,7 +98,7 @@ class AIEnsemble:
         enemy_count,
         player_health,
     ):
-        """Call per enemy. Only runs DT — RNN already done in pre_frame."""
+        """Fuse DT, RNN, and PPO decisions into one enemy command."""
         feats = DecisionTreeAI.build_features(
             enemy_rect,
             player_rect,
@@ -118,39 +113,30 @@ class AIEnsemble:
         dt_conf = float(np.max(dt_probs))
         dt_weight = DT_WEIGHT * max(dt_conf, 0.1)
         rnn_weight = RNN_WEIGHT * max(self.rnn_confidence, 0.1)
-        # Scale PPO with difficulty: dampened over the first tries so the early
-        # game is reliably easy, ramping to full weight by peak tries so the
-        # (trained) agent becomes the main driver of the harder late game.
+        # PPO gains influence as retries teach the AI which pressure works
         ppo_weight = PPO_WEIGHT * (0.2 + 0.8 * d)
         fused = (
             dt_weight * dt_probs
             + rnn_weight * self._rnn_strat
             + ppo_weight * self._ppo_strat
         )
-        # Difficulty shaping: calmer when easy (lean toward patrol), pushier when
-        # hard. This thins out how many enemies *want* to attack before the
-        # budget even kicks in.
+        # Difficulty shapes fused votes before the aggression budget is applied
         aggro_scale = 0.6 + 0.8 * d
         for s in PRESSURE_STRATS:
             fused[s] *= aggro_scale
         fused[STRAT_PATROL] *= 1.0 + 0.5 * (1.0 - d)
-        # Player camping on a high platform draws enemies up after them. Add (not
-        # multiply) to the aerial-spawn vote so it fires even when the base vote is
-        # ~0 — flyers then home onto the player's height. Nudge chase too so ground
-        # enemies gather under the platform and leap up after them.
+        # Anti-camping bias converts repeated high-platform play into flyers and chasers
         if self._aerial_bias > 0:
             fused[STRAT_SPAWN_AERIAL] += 0.8 * self._aerial_bias
             fused[STRAT_CHASE] += 0.3 * self._aerial_bias
         fused /= fused.sum() + 1e-8
         intended = int(np.argmax(fused))
         self.last_fused_probs = fused
-        # Learn the model's *intent* (not the throttled action) so adaptation
-        # keeps trending toward smarter pressure over time.
+        # Store intended responses so the DT learns the player's behavior trend
         self._dt_examples.append((feats, intended))
         if len(self._dt_examples) > 2000:
             self._dt_examples = self._dt_examples[-2000:]
-        # Throttle: only a limited number of enemies may press at once. Over
-        # budget, fall back to patrolling so the player keeps an escape route.
+        # Throttle pressure so learned behavior stays playable
         command = intended
         if intended in PRESSURE_STRATS:
             if self._aggro_budget > 0:
