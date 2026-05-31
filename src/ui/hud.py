@@ -41,11 +41,13 @@ def ai_debug_lines(recent_actions, snapshot):
     ]
 
 
-def _pf(size):
+def _pf(size, use_sys=True):
+    if use_sys:
+        return pygame.font.SysFont("Arial", size, bold=True)
     try:
         return pygame.font.Font(_FONT_PATH, size)
     except Exception:
-        return pygame.font.SysFont("Courier New", size, bold=True)
+        return pygame.font.Font(None, size)
 
 
 HUD_H = 56
@@ -90,21 +92,21 @@ def _clamp01(value):
 class HUD:
     def __init__(self):
         pygame.font.init()
-        self.fp_val = _pf(24)
-        self.fp_lbl = _pf(9)
-        self.time_font = _pf(24)
+        self.fp_val = _pf(22, use_sys=True)
+        self.fp_lbl = _pf(12, use_sys=True)
+        self.time_font = pygame.font.SysFont("Arial", 23, bold=True)
         self.ai_lbl = pygame.font.SysFont("Courier New", 13, bold=True)
         self.ai_val = pygame.font.SysFont("Courier New", 13)
 
     def draw(self, surface, gs, time_remaining, level_progress):
-        # Panel (fully opaque so text never washes out over bright backgrounds)
+        # Panel
         panel = pygame.Surface((SCREEN_WIDTH, HUD_H), pygame.SRCALPHA)
         for y in range(HUD_H):
             t = y / HUD_H
             r = int(8 + 12 * t)
             g = int(12 + 18 * t)
             b = int(28 + 32 * t)
-            pygame.draw.line(panel, (r, g, b, 255), (0, y), (SCREEN_WIDTH, y))
+            pygame.draw.line(panel, (r, g, b, 235), (0, y), (SCREEN_WIDTH, y))
         surface.blit(panel, (0, 0))
         pygame.draw.line(surface, (255, 235, 120), (0, 0), (SCREEN_WIDTH, 0), 1)
         pygame.draw.line(surface, (180, 140, 0), (0, 2), (SCREEN_WIDTH, 2), 1)
@@ -117,7 +119,7 @@ class HUD:
 
         # SCORE (left)
         _text3d(surface, "SCORE", self.fp_lbl, C_DIM, C_BLACK, 14, 5)
-        _text3d(surface, f"{gs.score}", self.fp_val, C_GOLD, C_GOLD_D, 12, 16)
+        _text3d(surface, f"{gs.score:07d}", self.fp_val, C_GOLD, C_GOLD_D, 12, 16)
 
         # LEVEL (center)
         wlbl = self.fp_lbl.render("LEVEL", True, C_DIM)
@@ -130,14 +132,15 @@ class HUD:
             SCREEN_WIDTH // 2 - wlbl.get_width() // 2,
             5,
         )
-        lv = str(gs.level_index + 1)
-        wval = self.fp_val.render(lv, True, C_GOLD)
+        display_level = min(max(gs.level_index, 0), 2) + 1
+        lv = f"{display_level}"
+        wval = self.fp_val.render(lv, True, C_CREAM)
         _text3d(
             surface,
             lv,
             self.fp_val,
-            C_GOLD,
-            C_GOLD_D,
+            C_CREAM,
+            (60, 50, 30),
             SCREEN_WIDTH // 2 - wval.get_width() // 2,
             16,
         )
@@ -154,7 +157,7 @@ class HUD:
 
         # TIME (right)
         time_label = self.fp_lbl.render("TIME", True, C_DIM)
-        time_label_x = SCREEN_WIDTH - time_label.get_width() - 14
+        time_label_x = SCREEN_WIDTH - time_label.get_width() - 18
         _text3d(surface, "TIME", self.fp_lbl, C_DIM, C_BLACK, time_label_x, 5)
         total_seconds = max(0, int(time_remaining))
         minutes = total_seconds // 60
@@ -175,8 +178,16 @@ class HUD:
         )
         time_text = f"{minutes}:{seconds:02d}"
         time_img = self.time_font.render(time_text, True, tcol)
-        tx = SCREEN_WIDTH - time_img.get_width() - 14
-        _text3d(surface, time_text, self.time_font, tcol, tsh, tx, 16)
+        time_x = SCREEN_WIDTH - time_img.get_width() - 18
+        _text3d(
+            surface,
+            time_text,
+            self.time_font,
+            tcol,
+            tsh,
+            time_x,
+            16,
+        )
 
         # Level progress bar
         bw, bh = 200, 5
