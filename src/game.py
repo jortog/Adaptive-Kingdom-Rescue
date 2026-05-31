@@ -26,7 +26,7 @@ from src.systems.audio import AudioManager
 from src.systems.camera import Camera
 from src.systems.game_state import GameState
 from src.systems.scoring import ScoringSystem
-from src.ui.hud import HUD
+from src.ui.hud import HUD, ai_debug_lines
 from src.ui.screens import ScreenManager
 
 SCENE_MENU = "menu"
@@ -70,6 +70,8 @@ class Game:
         self._pause_cursor = 0
         self._settings_cursor = 0
         self._settings_from = SCENE_MENU
+        self.show_ai_debug = False
+        self._last_logged_strat = None
 
     def _start_menu_music(self):
         self.audio.play_bgm(MENU_BGM, loop=True, start_pos=12)
@@ -90,6 +92,7 @@ class Game:
                 level_width=self.level.pixel_width,
                 level_time=LEVEL_TIME_LIMIT,
             )
+            self._apply_ai()
         self.enemies = []
         for sp in self.level.get_enemy_spawns():
             self.enemies.append(
@@ -111,27 +114,6 @@ class Game:
             PowerUp(20 * TILE_SIZE, gy - TILE_SIZE, "star"),
         ]
 
-    def _build_ppo_state(self, jump_freq=None, run_freq=None):
-        if jump_freq is None:
-            jump_freq = self.gs.count_recent_action(ACTION_JUMP)
-        if run_freq is None:
-            run_freq = self.gs.count_recent_action(ACTION_RUN)
-        return self.ai_ensemble.ppo.build_state(
-            self.gs.level_time_elapsed,
-            self.gs.lives,
-            len(self.enemies),
-            abs(self.princess.rect.centerx - self.player.rect.centerx),
-            jump_freq,
-            run_freq,
-            self.player.vel_x,
-            self.player.size_level,
-        )
-
-    def _record_ppo_transition(self, state, action, reward, done=False):
-        next_state = self._build_ppo_state()
-        self.gs.add_ppo_experience(state, action, reward, next_state, done)
-        self.ai_ensemble.ppo.observe(state, action, reward, next_state, done)
-
     def update_game(self, dt):
         self.time_remaining -= dt
         self.gs.level_time_elapsed += dt
@@ -140,10 +122,7 @@ class Game:
         jf = self.gs.count_recent_action(ACTION_JUMP)
         rf = self.gs.count_recent_action(ACTION_RUN)
         ah = self.gs.get_action_history_padded()
-        ppo_state = self._build_ppo_state(jf, rf)
-        self.ai_ensemble.pre_frame(dt, ah, ppo_state)
-        ppo_action = self.ai_ensemble._ppo_action
-        frame_reward = dt
+        self.ai_ensemble.pre_frame(dt, ah)
         player_jumped = self.player.vel_y < -300 and not self.player.on_ground
         spawn_requested = False
         for e in self.enemies:
@@ -192,22 +171,15 @@ class Game:
                 self.player.vel_y = -400
                 self.audio.play_defeat()
                 self.scoring.award_enemy_defeat(e.enemy_type, not self.player.on_ground)
-                frame_reward -= 0.4
             else:
                 old_size = self.player.size_level
                 old_shields = self.player.shield_count
                 if self.player.take_damage():
                     self.gs.damage_taken_this_level += 1
                     self.gs.lives -= 1
-                    frame_reward += 0.75
                     self.audio.play_death()
-                    if self.gs.level_time_elapsed < 5.0:
-                        frame_reward -= 0.5
                     self.gs.player_deaths_this_level += 1
                     self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-                    self._record_ppo_transition(
-                        ppo_state, ppo_action, frame_reward, done=True
-                    )
                     if self.gs.lives > 0:
                         self.load_level(self.gs.level_index)
                     return
@@ -216,18 +188,13 @@ class Game:
                     or self.player.shield_count < old_shields
                 ):
                     self.gs.damage_taken_this_level += 1
-                    frame_reward += 0.25
         for hz in self.level.hazards:
             if self.player.rect.colliderect(hz):
                 self.gs.lives -= 1
                 self.audio.play_death()
                 self.gs.player_deaths_this_level += 1
                 self.gs.damage_taken_this_level += 1
-                frame_reward += 0.75
                 self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-                self._record_ppo_transition(
-                    ppo_state, ppo_action, frame_reward, done=True
-                )
                 if self.gs.lives > 0:
                     self.load_level(self.gs.level_index)
                 return
@@ -243,7 +210,6 @@ class Game:
                 self.powerups.remove(pu)
 
         if self.player.rect.colliderect(self.princess.rect):
-            frame_reward -= 2.0
             self.scoring.award_level_complete(
                 self.time_remaining, self.gs.damage_taken_this_level == 0
             )
@@ -261,8 +227,6 @@ class Game:
                 self.scene = SCENE_WIN
             else:
                 self.scene = SCENE_LEVEL_COMPLETE
-
-            self._record_ppo_transition(ppo_state, ppo_action, frame_reward, done=True)
             return
         if (
             self.player.rect.top > self.level.pixel_height + 100
@@ -272,14 +236,10 @@ class Game:
             self.audio.play_death()
             self.gs.player_deaths_this_level += 1
             self.gs.damage_taken_this_level += 1
-            frame_reward += 0.75
             self.scene = SCENE_GAME_OVER if self.gs.lives <= 0 else self.scene
-            self._record_ppo_transition(ppo_state, ppo_action, frame_reward, done=True)
             if self.gs.lives > 0:
                 self.load_level(self.gs.level_index)
             return
-
-        self._record_ppo_transition(ppo_state, ppo_action, frame_reward)
 
     def draw_game(self):
         cx = self.camera.int_x
@@ -300,15 +260,20 @@ class Game:
             self.time_remaining,
             self._max_level_progress,
         )
+        if self.show_ai_debug and self.ai_ensemble:
+            snap = self.ai_ensemble.debug_snapshot()
+            recent = list(self.gs.action_history)
+            self.hud.draw_ai_debug(self.screen, recent, snap)
+            if snap["command"] != self._last_logged_strat:
+                self._last_logged_strat = snap["command"]
+                lines = ai_debug_lines(recent, snap)
+                print("[AI] " + " | ".join(f"{lbl} {val}" for lbl, val in lines))
 
     def _apply_ai(self):
         if self.ai_ensemble:
-            try:
-                self.ai_ensemble.ppo.model.ent_coef = (
-                    0.005 if self.settings.get("ai_difficulty") == "challenge" else 0.01
-                )
-            except Exception:
-                pass
+            self.ai_ensemble.set_difficulty(
+                self.settings.get("ai_difficulty") == "challenge"
+            )
 
     def _settings_key(self, event):
         N = 5
@@ -373,6 +338,8 @@ class Game:
                         elif event.key == pygame.K_ESCAPE:
                             self.scene = SCENE_MENU
                             self._start_menu_music()
+                        elif event.key == pygame.K_F1:
+                            self.show_ai_debug = not self.show_ai_debug
                     if self.player:
                         self.player.handle_event(event)
                 elif self.scene == SCENE_PAUSE and event.type == pygame.KEYDOWN:

@@ -68,10 +68,8 @@ SCORE_EXTRA_LIFE_THRESHOLD = 5000
 AI_ACTION_HISTORY_LEN = 30
 AI_ACTION_BUFFER_LEN = 300
 RNN_INFERENCE_INTERVAL = 0.2
-PPO_UPDATE_INTERVAL = 10.0
-DT_WEIGHT = 0.3
-RNN_WEIGHT = 0.3
-PPO_WEIGHT = 0.4
+DT_WEIGHT = 0.5
+RNN_WEIGHT = 0.5
 
 # Action indices
 ACTION_IDLE = 0
@@ -91,6 +89,15 @@ STRAT_BLOCK_LOWER = 4
 STRAT_AMBUSH = 5
 STRAT_RETREAT = 6
 STRAT_COUNT = 7
+STRAT_NAMES = [
+    "PATROL",
+    "CHASE",
+    "SPAWN_AERIAL",
+    "BLOCK_UPPER",
+    "BLOCK_LOWER",
+    "AMBUSH",
+    "RETREAT",
+]
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -105,9 +112,7 @@ SOUNDS_DIR = os.path.join(ASSETS_DIR, "sounds")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 
 RNN_BASELINE_MODEL_PATH = os.path.join(BASELINE_MODELS_DIR, "rnn_predictor.pt")
-PPO_BASELINE_MODEL_PATH = os.path.join(BASELINE_MODELS_DIR, "ppo_agent.zip")
 DT_BASELINE_MODEL_PATH = os.path.join(BASELINE_MODELS_DIR, "decision_tree.pkl")
 
 RNN_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "rnn_predictor.pt")
-PPO_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "ppo_agent.zip")
 DT_MODEL_PATH = os.path.join(RUNTIME_MODELS_DIR, "decision_tree.pkl")

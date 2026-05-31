@@ -1,7 +1,44 @@
 import pygame
-from config import SCREEN_WIDTH
+from config import SCREEN_WIDTH, ACTION_NAMES, STRAT_NAMES
 
 _FONT_PATH = "assets/fonts/SuperPixel-m2L8j.ttf"
+
+# Human-readable enemy response per strategy (for the AI demo overlay/log).
+STRAT_RESPONSE = {
+    0: "Patrolling",
+    1: "Chasing player",
+    2: "Flying enemy activated",
+    3: "Guarding upper route",
+    4: "Guarding lower route",
+    5: "Ambush prepared ahead",
+    6: "Backing off",
+}
+
+# Detected-pattern label that drove the chosen strategy.
+STRAT_RULE = {
+    0: "No strong pattern",
+    1: "Player nearby",
+    2: "Frequent jumping detected",
+    3: "Aerial pressure / route repeat",
+    4: "Route repetition detected",
+    5: "Fast running detected",
+    6: "Player attacking / outnumbered",
+}
+
+
+def ai_debug_lines(recent_actions, snapshot):
+    """Build the 4 demo lines shared by the overlay and the console log."""
+    recent = [ACTION_NAMES[a] for a in recent_actions[-6:] if 0 <= a < len(ACTION_NAMES)]
+    pred = snapshot.get("rnn_pred_action", 0)
+    pred_name = ACTION_NAMES[pred] if 0 <= pred < len(ACTION_NAMES) else "?"
+    conf = snapshot.get("rnn_confidence", 0.0)
+    cmd = snapshot.get("command", 0)
+    return [
+        ("Recent Actions:", ", ".join(recent) if recent else "(none)"),
+        ("RNN Prediction:", f"{pred_name} with {conf * 100:.0f}% confidence"),
+        ("Decision Tree Rule:", STRAT_RULE.get(cmd, STRAT_NAMES[cmd] if 0 <= cmd < len(STRAT_NAMES) else "?")),
+        ("Enemy Response:", STRAT_RESPONSE.get(cmd, "?")),
+    ]
 
 
 def _pf(size):
@@ -56,6 +93,8 @@ class HUD:
         self.fp_val = _pf(18)
         self.fp_lbl = _pf(9)
         self.time_font = pygame.font.SysFont("Courier New", 23, bold=True)
+        self.ai_lbl = pygame.font.SysFont("Courier New", 13, bold=True)
+        self.ai_val = pygame.font.SysFont("Courier New", 13)
 
     def draw(self, surface, gs, time_remaining, level_progress):
         # Panel
@@ -162,3 +201,23 @@ class HUD:
             pygame.draw.rect(surface, (70, 210, 90), fill, border_radius=2)
             pygame.draw.rect(surface, C_GOLD, (bx, by, min(fw, 5), bh), border_radius=2)
         pygame.draw.line(surface, (255, 255, 255, 90), (bx, by), (bx + bw, by), 1)
+
+    def draw_ai_debug(self, surface, recent_actions, snapshot):
+        """Translucent panel showing the live AI decision (toggle with F1)."""
+        lines = ai_debug_lines(recent_actions, snapshot)
+        pad = 8
+        lh = 18
+        w = 430
+        h = pad * 2 + lh * (len(lines) + 1)
+        x, y = 12, HUD_H + 10
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((6, 10, 22, 205))
+        pygame.draw.rect(panel, (90, 150, 230), panel.get_rect(), 1)
+        surface.blit(panel, (x, y))
+        ty = y + pad
+        surface.blit(self.ai_lbl.render("AI DEBUG  [F1]", True, (120, 200, 120)), (x + pad, ty))
+        ty += lh
+        for label, value in lines:
+            surface.blit(self.ai_lbl.render(label, True, (150, 180, 220)), (x + pad, ty))
+            surface.blit(self.ai_val.render(value, True, C_WHITE), (x + pad + 150, ty))
+            ty += lh
