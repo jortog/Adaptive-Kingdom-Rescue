@@ -20,6 +20,9 @@ class LevelBase:
     COLS = 30
     N_LOWER = 4  # platforms one hop above the ground
     N_UPPER = 1  # platforms one hop above a lower platform
+    # Keep this many columns clear to the LEFT of the princess so no platform
+    # hugs her — otherwise the player can vault off it and skip past her guards.
+    PRINCESS_CLEAR_COLS = 5
 
     def __init__(self, seed=None):
         self.rng = random.Random(seed)
@@ -67,8 +70,9 @@ class LevelBase:
             grid[ground_row][c] = self.GROUND
         lower_row = ground_row - 2
         upper_row = ground_row - 4
-        # Leave the player spawn (left) and princess (right) columns clear.
-        c_min, c_max = 3, cols - 4
+        # Leave the player spawn (left) clear, and a wider gap before the princess
+        # (right) so no platform hugs her and lets the player skip her guards.
+        c_min, c_max = 3, cols - 2 - self.PRINCESS_CLEAR_COLS
         lower = self._scatter_row(grid, rng, lower_row, self.N_LOWER, c_min, c_max)
         self._place_supported_row(
             grid, rng, upper_row, self.N_UPPER, c_min, c_max, lower

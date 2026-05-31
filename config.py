@@ -85,6 +85,16 @@ DIFFICULTY_TRIES_FULL = 16
 # How much the tries-progress adds on top of the per-level base at the peak.
 DIFFICULTY_PROGRESS_MAX = 0.85
 
+# Power-up rarity: the invincibility star gets rarer as difficulty climbs (and on
+# later levels) so the player can't just grab one and run straight through every
+# enemy to the princess. Below this floor it never drops further.
+STAR_MIN_CHANCE = 0.15
+STAR_LEVEL_PENALTY = 0.15
+
+# When the player camps on an elevated platform, enemies are drawn up after them
+# (more aerial spawns + vertical chasing). Seconds of camping to reach full bias.
+ELEVATION_CAMP_FULL = 2.0
+
 # Action indices
 ACTION_IDLE = 0
 ACTION_JUMP = 1

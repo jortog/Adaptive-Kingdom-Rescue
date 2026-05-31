@@ -102,7 +102,11 @@ class Enemy(pygame.sprite.Sprite):
             self._hop_timer += dt
             if self._hop_timer >= self._hop_interval:
                 self._hop_timer = 0.0
-                self.vel_y = -380 if self.enemy_type == "ground" else -520
+                hop = -380 if self.enemy_type == "ground" else -520
+                # Leap higher to mount a platform when chasing a player above us.
+                if self.state in ("chase", "ambush") and player_rect.bottom < self.rect.top - 8:
+                    hop = -640
+                self.vel_y = hop
                 self.on_ground = False
 
         # Horizontal behavior by state
@@ -112,6 +116,11 @@ class Enemy(pygame.sprite.Sprite):
             d = 1 if player_rect.centerx > self.rect.centerx else -1
             self.vel_x = ENEMY_CHASE_SPEED * d
             self.rect.x += int(self.vel_x * dt)
+            if self.enemy_type == "flying":
+                # Home onto the player's height so aerial enemies actually chase
+                # the player up onto platforms instead of holding spawn altitude.
+                ty = player_rect.centery - self.rect.height // 2
+                self.rect.y += int((ty - self.rect.y) * 3.0 * dt)
         elif self.state == "ambush":
             d = 1 if player_rect.centerx > self.rect.centerx else -1
             self.vel_x = ENEMY_CHASE_SPEED * 1.3 * d

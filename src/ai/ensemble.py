@@ -57,6 +57,8 @@ class AIEnsemble:
         # Set each frame by pre_frame().
         self._difficulty = 0.5
         self._aggro_budget = 1
+        # 0..1: how hard to chase the player up onto a high platform they camp on.
+        self._aerial_bias = 0.0
 
     def compute_difficulty(self, level_index, level_elapsed):
         """0..1 pressure scalar: really easy for the first several tries, a calm
@@ -73,9 +75,14 @@ class AIEnsemble:
         """Count one try (a level attempt). Drives the difficulty ramp."""
         self.tries += 1
 
-    def pre_frame(self, dt, action_history, ppo_state, difficulty=0.5):
+    def difficulty_progress(self):
+        """0..1 fraction of the way to peak difficulty, by number of tries."""
+        return min(self.tries / DIFFICULTY_TRIES_FULL, 1.0)
+
+    def pre_frame(self, dt, action_history, ppo_state, difficulty=0.5, aerial_bias=0.0):
         """Call ONCE per frame. Shared values for all enemies."""
         self._difficulty = max(0.0, min(difficulty, 1.0))
+        self._aerial_bias = max(0.0, min(aerial_bias, 1.0))
         # 1 enemy presses through the whole basic range, 2 once trained, 3 only
         # at peak adaptation — never a full swarm.
         self._aggro_budget = 1 + int(self._difficulty * 2 + 1e-6)
@@ -127,6 +134,13 @@ class AIEnsemble:
         for s in PRESSURE_STRATS:
             fused[s] *= aggro_scale
         fused[STRAT_PATROL] *= 1.0 + 0.5 * (1.0 - d)
+        # Player camping on a high platform draws enemies up after them. Add (not
+        # multiply) to the aerial-spawn vote so it fires even when the base vote is
+        # ~0 — flyers then home onto the player's height. Nudge chase too so ground
+        # enemies gather under the platform and leap up after them.
+        if self._aerial_bias > 0:
+            fused[STRAT_SPAWN_AERIAL] += 0.8 * self._aerial_bias
+            fused[STRAT_CHASE] += 0.3 * self._aerial_bias
         fused /= fused.sum() + 1e-8
         intended = int(np.argmax(fused))
         self.last_fused_probs = fused

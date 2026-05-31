@@ -6,10 +6,13 @@ import pygame
 from config import (
     ACTION_JUMP,
     ACTION_RUN,
+    ELEVATION_CAMP_FULL,
     FPS,
     LEVEL_TIME_LIMIT,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
+    STAR_LEVEL_PENALTY,
+    STAR_MIN_CHANCE,
     STRAT_SPAWN_AERIAL,
     TILE_SIZE,
     TITLE,
@@ -64,6 +67,9 @@ class Game:
         self._max_level_progress = 0.0
         self._aerial_spawn_cd = 0.0
         self.AERIAL_SPAWN_CD = 2.5
+        # Seconds the player has spent camping on a high platform (drives the
+        # "chase me up there / spawn aerials" response).
+        self._elevated_time = 0.0
         self._enemy_cap = 99
         self.selected_level = 0
         self.settings = {"sound": True, "music": True}
@@ -85,6 +91,7 @@ class Game:
         self.time_remaining = LEVEL_TIME_LIMIT
         self._max_level_progress = 0.0
         self._aerial_spawn_cd = 0.0
+        self._elevated_time = 0.0
         self.player = Player(self.level.spawn_x, self.level.spawn_y, self.gs)
         self.player.audio = self.audio
         self.camera = Camera(self.level.pixel_width, self.level.pixel_height)
@@ -114,11 +121,19 @@ class Game:
         px, py = self.level.get_princess_position()
         self.princess = Princess(px, py)
         # Random but reachable: each power-up rests on the ground or on top of a
-        # reachable platform, re-rolled per attempt like the platforms.
+        # reachable platform, re-rolled per attempt like the platforms. The star
+        # (full invincibility) gets rarer as difficulty/level climbs so the player
+        # can't grab one and run straight through everyone; otherwise it's a
+        # milder shield.
+        prog = self.ai_ensemble.difficulty_progress()
+        star_chance = max(
+            STAR_MIN_CHANCE, 1.0 - prog - STAR_LEVEL_PENALTY * self.gs.level_index
+        )
+        third = "star" if random.random() < star_chance else "shield"
         self.powerups = [
             PowerUp(x, y, kind)
             for (x, y, kind) in self.level.get_powerup_spawns(
-                ["mushroom", "mushroom", "star"]
+                ["mushroom", "mushroom", third]
             )
         ]
 
@@ -156,8 +171,18 @@ class Game:
         difficulty = self.ai_ensemble.compute_difficulty(
             self.gs.level_index, self.gs.level_time_elapsed
         )
+        # Track camping on a high platform → draw enemies up after the player. We
+        # key off sustained elevation (not on_ground, which flickers while resting
+        # on a platform); a brief jump arc never lingers long enough to count.
+        ground_top = self.level.pixel_height - TILE_SIZE
+        elevation_tiles = max(0.0, (ground_top - self.player.rect.bottom) / TILE_SIZE)
+        if elevation_tiles >= 1.5:
+            self._elevated_time = min(self._elevated_time + dt, ELEVATION_CAMP_FULL + 1.0)
+        else:
+            self._elevated_time = max(0.0, self._elevated_time - dt * 1.5)
+        aerial_bias = min(self._elevated_time / ELEVATION_CAMP_FULL, 1.0)
         ppo_state = self._build_ppo_state(jf, rf)
-        self.ai_ensemble.pre_frame(dt, ah, ppo_state, difficulty)
+        self.ai_ensemble.pre_frame(dt, ah, ppo_state, difficulty, aerial_bias)
         ppo_action = self.ai_ensemble._ppo_action
         frame_reward = dt
         player_jumped = self.player.vel_y < -300 and not self.player.on_ground
@@ -186,12 +211,15 @@ class Game:
             e.update(dt, self.player.rect, self.level.platforms)
         self._aerial_spawn_cd -= dt
         alive_count = sum(1 for e in self.enemies if e.alive)
+        # Normal aerial spawns are gated behind difficulty + jumpiness, but a
+        # player camping on a high platform gets a flyer sent up regardless so
+        # they can't just park out of reach.
+        camping_high = self._elevated_time >= 1.2
         if (
             spawn_requested
             and self._aerial_spawn_cd <= 0
-            and jf >= 2
-            and difficulty >= 0.45
             and alive_count < self._enemy_cap
+            and ((difficulty >= 0.45 and jf >= 2) or camping_high)
         ):
             x = self.player.rect.centerx + random.randint(-TILE_SIZE, TILE_SIZE)
             y = self.player.rect.top - 3 * TILE_SIZE
