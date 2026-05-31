@@ -367,6 +367,7 @@ class Game:
                             self.audio.stop_bgm()
                             self.gs.reset_session()
                             self.gs.level_index = self.selected_level
+                            self._finished_level = self.selected_level + 1
                             self.load_level(self.gs.level_index)
                             self.scene = SCENE_GAME
                         elif self._menu_cursor == 1:
@@ -421,10 +422,8 @@ class Game:
                             self.load_level(self.gs.level_index)
                             self.scene = SCENE_GAME
                         elif self.scene == SCENE_WIN:
-                            self.gs.challenge_mode = True
-                            self.gs.level_index = 0
-                            self.load_level(0)
-                            self.scene = SCENE_GAME
+                            self.scene = SCENE_MENU
+                            self._start_menu_music()
                     elif event.key == pygame.K_ESCAPE:
                         self.scene = SCENE_MENU
                         self._start_menu_music()

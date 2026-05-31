@@ -632,16 +632,13 @@ class ScreenManager:
             n=2,
             sc=(75, 48, 0),
         )
-        _center(
-            self.surface, "Challenge Mode Unlocked!", self.fp_small, (252, 162, 65), 366
-        )
         if int(t * 2) % 2 == 0:
             _center_outline(
                 self.surface,
-                "ENTER = Challenge   |   ESC = Menu",
+                "PRESS ENTER FOR MAIN MENU",
                 self.fp_med,
                 C_GREEN,
-                428,
+                400,
                 n=2,
                 sc=(0, 55, 0),
             )

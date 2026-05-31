@@ -148,11 +148,14 @@ class Enemy(pygame.sprite.Sprite):
                     self.on_ground = True
                     self.vel_y = 0
 
-        # Patrol boundary turn
-        if self.state == "patrol":
-            if self.rect.left < self.patrol_left:
+        # Clamp to patrol boundaries for ALL states (local regional defender)
+        if self.rect.left < self.patrol_left:
+            self.rect.left = self.patrol_left
+            if self.state == "patrol":
                 self.vel_x = ENEMY_PATROL_SPEED
-            elif self.rect.right > self.patrol_right:
+        elif self.rect.right > self.patrol_right:
+            self.rect.right = self.patrol_right
+            if self.state == "patrol":
                 self.vel_x = -ENEMY_PATROL_SPEED
 
     def die(self):

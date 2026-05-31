@@ -4,11 +4,13 @@ from config import SCREEN_WIDTH
 _FONT_PATH = "assets/fonts/SuperPixel-m2L8j.ttf"
 
 
-def _pf(size):
+def _pf(size, use_sys=True):
+    if use_sys:
+        return pygame.font.SysFont("Arial", size, bold=True)
     try:
         return pygame.font.Font(_FONT_PATH, size)
     except Exception:
-        return pygame.font.SysFont("Courier New", size, bold=True)
+        return pygame.font.Font(None, size)
 
 
 HUD_H = 56
@@ -53,9 +55,9 @@ def _clamp01(value):
 class HUD:
     def __init__(self):
         pygame.font.init()
-        self.fp_val = _pf(18)
-        self.fp_lbl = _pf(9)
-        self.time_font = pygame.font.SysFont("Courier New", 23, bold=True)
+        self.fp_val = _pf(22, use_sys=True)
+        self.fp_lbl = _pf(12, use_sys=True)
+        self.time_font = pygame.font.SysFont("Arial", 23, bold=True)
 
     def draw(self, surface, gs, time_remaining, level_progress):
         # Panel
@@ -91,7 +93,8 @@ class HUD:
             SCREEN_WIDTH // 2 - wlbl.get_width() // 2,
             5,
         )
-        lv = f"{gs.level_index + 1}"
+        display_level = min(max(gs.level_index, 0), 2) + 1
+        lv = f"{display_level}"
         wval = self.fp_val.render(lv, True, C_CREAM)
         _text3d(
             surface,
