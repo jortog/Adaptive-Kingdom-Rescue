@@ -18,6 +18,8 @@ class GameState:
         # Recent-window counts feed DT/PPO features such as jump/run frequency
         self.action_freq_window = []
         self.action_freq_timestamps = []
+        self.enemies_defeated_total = 0
+        self.player_deaths_this_level = 0
 
     def reset_level(self):
         self.level_time_elapsed = 0.0
