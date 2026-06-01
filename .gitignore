@@ -10,3 +10,10 @@ crash_log.txt
 output.txt
 update_check.zip
 data/runtime_models/
+
+__pycache__/
+*.pyc
+data/models/
+data/runtime_models/
+conflict.zip
+venv/
