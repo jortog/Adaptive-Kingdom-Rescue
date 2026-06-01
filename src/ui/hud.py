@@ -111,9 +111,8 @@ class HUD:
         # LEVEL
         lbl=self.fp_lbl.render("LEVEL",True,C_DIM)
         surface.blit(lbl, (SCREEN_WIDTH//2-lbl.get_width()//2, 4))
-        n = gs.level_index + 1
-        lv = "I" if n == 1 else str(n)
-        val=self.fs_roman.render(lv,True,C_CREAM)
+        lv = str(gs.level_index + 1)
+        val = self.fp_val.render(lv, True, C_CREAM)
         surface.blit(val, (SCREEN_WIDTH//2-val.get_width()//2, 14))
 
         # LIVES

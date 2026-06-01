@@ -39,6 +39,7 @@ class Player(pygame.sprite.Sprite):
         self.size_level = 1
         self.star_timer = 0.0
         self.shield_count = 0
+        self.has_flower = False
         self._action_record_timer = 0.0
         self._ACTION_RECORD_INTERVAL = 0.2
         self._walk_phase = 0.0
@@ -163,24 +164,43 @@ class Player(pygame.sprite.Sprite):
             elif self.on_ground:
                 self.game_state.record_action(ACTION_IDLE)
 
+    def _apply_size(self):
+        base_h = PLAYER_HEIGHT
+        # Grow TALLER only — keep width the same so small gaps still fit
+        target_h = base_h if self.size_level == 1 else int(base_h * 1.35)
+        if self.rect.height != target_h:
+            bottom = self.rect.bottom
+            cxx = self.rect.centerx
+            self.rect.height = target_h
+            self.rect.bottom = bottom
+            self.rect.centerx = cxx
+
     def take_damage(self):
+        # Star = full invincibility
         if self.star_timer > 0:
             return False
+        # Shield absorbs one hit, grants brief grace period
         if self.shield_count > 0:
             self.shield_count -= 1
+            self.star_timer = max(self.star_timer, 1.0)
             return False
+        # Big form (mushroom/flower) shrinks instead of dying
         if self.size_level > 1:
-            self.size_level -= 1
+            self.size_level = 1
+            self.has_flower = False
+            self.star_timer = max(self.star_timer, 1.0)
             return False
+        # No protection left -> dies
         return True
 
     def collect_powerup(self, kind):
+        # NOTE: size_level is a hit-point counter ONLY. It never changes self.rect,
+        # so the player can always fit through the same gaps regardless of size.
         if kind == "mushroom":
-            if self.size_level < 2:
-                self.size_level = 2
+            self.size_level = 2
         elif kind == "flower":
-            if self.size_level < 2:
-                self.size_level = 2
+            self.has_flower = True
+            self.size_level = 2
         elif kind == "star":
             self.star_timer = 10.0
         elif kind == "shield":
@@ -188,7 +208,6 @@ class Player(pygame.sprite.Sprite):
         elif kind == "feather":
             self.can_double_jump = True
 
-    # Draw armored knight
     def draw(self, surface, camera_offset_x, world_y_offset=0):
         import math
 
