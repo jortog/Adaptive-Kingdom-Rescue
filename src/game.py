@@ -128,7 +128,7 @@ class Game:
         self.powerups = [
             PowerUp(x, y, kind)
             for (x, y, kind) in self.level.get_powerup_spawns(
-                ["mushroom", "mushroom", third]
+                ["mushroom", "flower", third]
             )
         ]
 
